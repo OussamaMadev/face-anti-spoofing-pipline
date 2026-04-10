@@ -1,0 +1,164 @@
+important notes :
+
+this is the desc for datasets:
+
+    NUAA : {
+        spoofing attack types :  print
+
+        file naming convention : {
+            ID_galss_pos_session_picNo 
+
+            E.g. 0010_01_05_03_115.jpg
+            
+            ID : 0001~0016 picture number
+            
+            Glasses : 00~01
+                    00 : with glasses
+                    01 : no glasses
+            
+            Pos :  01~08 the location and light conditions of images
+                    01: up-down-rotate
+                    02: up-down-twist
+                    03: left-right-rotate
+                    04: left-right-twist
+                    05: close--window-open-lights
+                    07: open-window-open-lights
+                    08: open-widow-shut-lights
+                    08: still
+            
+            Session : 01~03
+            
+            picNo : picture number
+        }
+
+
+        v1 {
+            it is from kaggle face cropped
+            structure : NUAA -> test or train -> real or spoof -> images
+        }
+        
+        NUAA_V2 : {
+            you can partition subjects into train val test as you want
+            structure : NUAA_V2 -> SubjectId -> real or spoof -> images
+        } 
+
+        subject 0013 don't contain spoof data
+        subject 0016 don't contain live data
+        don't use subjects 0016 and 0013 in training 
+    },
+
+    casia_fasd : 
+    {
+        spoofing attack types :  print, cut photo, video replay
+
+        structure : casia_fasd -> test or train -> SubjectId -> videos and face.txt(the txt file contains the face bounding box and eyes information for each frame of the video)
+        (text file structure : frame number, topLeft_x, topLeft_y, width, height, left eye x, left eye y, right eye x, right eye y)
+
+        V1 
+        {
+            structure : CASIA_FASD_V1 -> test or train -> images (full frame frome vedio without cropping)
+        }
+
+        V2 
+        {
+            structure : CASIA_FASD_V2 -> test or train -> SubjectId -> real or spoof -> images (cropped face images)
+            cropping is done by using the face bounding box information in the text file and then resizing the cropped face to 224*224
+            we add a margin of 10 pixels to the bounding box when cropping the face when it is possible, 
+            we add the maximum possible margin but not more than 10 pixels
+            margin in [0,10]
+            file naming convention : SubjectId_VideoId_FrameId.jpg
+            VideoId in [1 to 8] and [HR_1 to HR_4]
+        }
+
+        V2_Skipping10 
+        {
+            structure : CASIA_FASD_V2_Skipping10 -> test or train -> SubjectId -> real or spoof -> images (cropped face images, skipping 10 frames between each two consecutive images)}
+            same as V2 but we skip 10 frames between each two consecutive images
+            resizing every frame to (224,224)
+        }[may be removed to save space]
+
+        V3 
+        { 
+            structure : CASIA_FASD_V3 -> SubjectId -> real or spoof -> images
+            same as V2 but we don't have train and test folders, we will split the data into train and test later by using the subject id
+            file naming convention : SubjectId_VideoId_FrameId.jpg
+            VideoId in [1 to 12]
+            no resizing
+        } 
+
+        V3_224x224 
+        {
+            same as V3 but with resizing every frame to (224,224)
+        }[may be removed to save space]
+
+        CASIA_FASD_V3_10percent_BCMSelection.json 
+        {
+            data map for CASIA_FASD_V3
+        }
+    }
+
+    filtering Parameters : {
+        "keep_ratio": 
+        "filter_function": the used filering function (see under this)
+        "selection_config": {
+            min_brightness_value: minimum brightness value for selection of best frames, float value between 0.0 to 100.0
+            max_brightness_value: maximum brightness value for selection of best frames, float value between min_brightness_value to 100.0
+            brightness_step: step value for iterating over brightness values, float value between 0.0 to max_brightness_value-min_brightness_value
+            min_entropy_value: minimum entropy value for selection of best frames, float value between 0.0 to 10.0
+            max_entropy_value: maximum entropy value for selection of best frames, float value between min_entropy_value to 10.0
+            entropy_step: step value for iterating over entropy values, float value between 0.0 to max_entropy_value-min_entropy_value
+        } (only affect the brightness_contrast_movement_based_selecting function)
+    }
+
+    filtering functions :{
+        uniform_sampling : {
+            simple uniform downsampling
+            it doesn't use the selection_config 
+        },
+
+        brightness_contrast_movement_based_selecting : {
+            
+            An Iterative Sharpness-Diversity Filter that uses statistical clustering and information entropy to select a representative 
+            subset of high-contrast, non-blurry frames from video frames.
+            
+            ### The 4-Stage Logic Flow
+
+            1.  Quality Pruning (Brightness & Entropy)
+                Using the `ImageSelectionConfig`, the function filters frames based on their Information Density. 
+                * Brightness Range: Discards frames that are too dark (underexposed) or too bright (overexposed/screen glare), 
+                which is critical for detecting Replay Attacks.
+                * Entropy (Contrast): Measures texture richness. Frames with low entropy (blurry or flat surfaces) are removed.
+                * Iterative Relaxation: If initial requirements are too strict, it uses the `brightness_step` and `entropy_step` 
+                to gradually relax thresholds until enough frames are found.
+
+            2.  Visual Diversity (Clustering)
+                To solve the "Redundancy Problem," it uses K-Means Clustering on grayscale histograms.
+                * It groups visually similar frames together (e.g., all frames with a specific head angle or background).
+                * This ensures that the final selection represents the entire duration of the video rather than just one specific second.
+                
+
+            3.  Sharpness Optimization (Laplacian Variance)
+                Within each visual cluster, the function calculates the Variance of the Laplacian. 
+                * This is a focus-measure tool used to identify the sharpest frame in a group.
+                * By selecting only the crispest frames, you ensure the CNN can see the fine details 
+                (skin pores, edges) necessary for high-accuracy spoof detection.
+            
+            
+
+            ### Summary Table 
+
+            | Component         | Parameter Used        | Goal |
+        
+            | Exposure Filter   | `min/max_brightness`  | Remove "blind" or glare-heavy frames. |
+            | Texture Filter    | `min/max_entropy`     | Ensure high information density. |
+            | Diversity Engine  | `nb_clusters`         | Prevent overfitting to redundant frames. |
+            | Focus Check       | `Laplacian Variance`  | Select the sharpest candidate in each group. |
+
+
+        }
+    }
+
+
+
+
+
