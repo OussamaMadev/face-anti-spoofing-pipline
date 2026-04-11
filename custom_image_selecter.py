@@ -18,7 +18,7 @@ from skimage import img_as_float
 import itertools  
 import time
 from multiprocessing import Pool
-import Katna.image_selector
+
 
 class ImageSelectionConfig:
     def __init__(self,min_brightness_value=10.0, max_brightness_value=90.0, brightness_step=2.0, min_entropy_value=1.0, max_entropy_value=10.0, entropy_step=0.5):
