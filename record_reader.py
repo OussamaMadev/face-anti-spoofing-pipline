@@ -9,19 +9,20 @@ def parse_experiment_records(json_path):
     summaries = []
     for record in data['records']:
         res = {
-            "experiment_id": data['metadata']['experiment_id'],
+            "input_size": record['config']['data_params']['input_size'],
+            "pixel_range": record['config']['data_params']['pixel_range'],
             "model": record['config']['model_params']['architecture'],
             "lr": record['config']['training_params']['learning_rate'],
-            "epochs_completed": record['logs']['epochs'],
+            "epochs": record['logs']['epochs'],
             "final_test_loss": record['logs']['final_test_metrics']['loss'],
             "final_test_acc": record['logs']['final_test_metrics']['accuracy'],
             "final_test_eer": record['logs']['final_test_metrics']['eer'],
             "data_augmentation": record['config']['augmentation_params'],
-            "filtering_parameters": record['config']['filtering_params']
+            "filtering_parameters ": (record['config']['filtering_params'] , "see the file for more details"),
         }
         summaries.append(res)
     
-    return pd.DataFrame(summaries)
+    return data['metadata']['experiment_id'], data['metadata']['notes'], pd.DataFrame(summaries)
 
 def plot_training_trends(json_path, record_index=0):
     with open(json_path, 'r') as f:

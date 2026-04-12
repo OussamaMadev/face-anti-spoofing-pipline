@@ -42,12 +42,10 @@ class TrainingPipeline:
         self.models_output_path = models_output_path
 
         if not os.path.exists(logs_output_path):
-            print(f"Logs output path '{logs_output_path}' does not exist. Creating it.")
-            os.makedirs(logs_output_path)
+            raise ValueError(f"Logs output path '{logs_output_path}' does not exist. Please create it before running the pipeline.")
         
         if not os.path.exists(models_output_path):
-            print(f"Models output path '{models_output_path}' does not exist. Creating it.")
-            os.makedirs(models_output_path)
+            raise ValueError(f"Models output path '{models_output_path}' does not exist. Please create it before running the pipeline.")
         
         timestamp = time.strftime("%Y%m%d-%H%M%S")
         
@@ -56,6 +54,8 @@ class TrainingPipeline:
             "metadata": {"experiment_id": experiment_id, "status": "initialized", "notes": note},
             "records": []
         }
+
+        self._fil_filtering_params()  # Pre-process filtering parameters for logging
 
     def val_configs(self):
         """Validates the provided configurations for completeness and correctness."""
@@ -107,6 +107,17 @@ class TrainingPipeline:
         clean = json.loads(json.dumps(cfg, default=lambda x: x.__name__ if hasattr(x, '__name__') else str(x)))
         return clean
     
+    def _fil_filtering_params(self):
+        """Extracts and formats filtering parameters for logging."""
+        for i, cfg in enumerate(self.configs):
+            filtering_params = cfg['filtering_params']
+            data_map_path = filtering_params['data_map_path']
+            data_map_metadata = json.load(open(data_map_path, 'r'))['metadata']
+            keep_ratio = data_map_metadata.get('keep_ratio', 'N/A')
+            filter_function = data_map_metadata.get('filter_function', 'N/A')
+            self.configs[i]["filtering_params"]["keep_ratio"] = keep_ratio
+            self.configs[i]["filtering_params"]["filter_function"] = filter_function
+            
 
     def init_model(self, cfg):
         """
@@ -148,11 +159,9 @@ class TrainingPipeline:
            
         for i, cfg in enumerate(self.configs):
             print(f"\n--- Running Sub-Experiment {i+1}/{len(self.configs)} ---")
+            print("Configuration:")
+            print(cfg)
 
-            filtering_params = cfg['filtering_params']
-            data_map_path = filtering_params['data_map_path']
-            
-                        
             model_name = f"{self.experiment_id}__model_{i}.keras"
             
             model_path = f"{self.models_output_path}/{model_name}"
