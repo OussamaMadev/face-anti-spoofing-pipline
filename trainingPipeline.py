@@ -134,7 +134,6 @@ class TrainingPipeline:
 
       
         optimizer = tf.keras.optimizers.Adam(learning_rate=t_params["learning_rate"])
-        cfg["model_params"]["parameters_count"] = model.count_params()
        
         # 4. Compile
         def eer(y_true, y_pred):
@@ -211,6 +210,7 @@ class TrainingPipeline:
             
             final_test_metrics = self.compute_single_pass_metrics(test_ds, model)
             
+            self.master_record["records"][i]["model_params"]["parameters_count"] = model.count_params()
             self.master_record["records"][i]["logs"]["training_history"] = history.history
             self.master_record["records"][i]["logs"]["epochs"] = len(history.history['loss'])
             self.master_record["records"][i]["logs"]["final_test_metrics"] = final_test_metrics
