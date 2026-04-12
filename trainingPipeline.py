@@ -191,12 +191,14 @@ class TrainingPipeline:
                 tf.keras.callbacks.EarlyStopping(monitor="eer", 
                                                 patience=cfg["training_params"]["early_stopping_patience"], 
                                                 mode="min", 
-                                                restore_best_weights=True), 
+                                                restore_best_weights=True,
+                                                verbose=1), 
                 
                 tf.keras.callbacks.ModelCheckpoint(model_path, 
                                                    save_best_only=True, 
                                                    monitor='eer',
-                                                   mode='min')
+                                                   mode='min',
+                                                   verbose=1)
                                                    
             ]
             history = model.fit(
