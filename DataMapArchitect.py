@@ -53,6 +53,12 @@ def _process_video_unit(img_folder, frame_list, filter_fn, keep_ratio, sub, labe
 
 class DataMapArchitect:
     def __init__(self, video_id_pos_in_file_name=1, video_id_segment_number=1, separator="_"):
+        """
+        video_id_pos_in_file_name: The position of the video ID in the filename when split by the separator.
+        video_id_segment_number: How many segments to combine for the video ID (useful if the ID is composed of multiple parts).
+        separator: The character used to split the filename into segments (default is "_").
+
+        """
         self.video_id_pos = video_id_pos_in_file_name
         self.video_id_seg_num = video_id_segment_number
         self.separator = separator
@@ -79,6 +85,15 @@ class DataMapArchitect:
 
 
     def create_map_parallel(self, dataroute, max_workers=None, keep_ratio=1.0, filter_fn=None, image_selection_config=None):
+        """
+        Main function to create the data map with parallel processing.
+         - dataroute: Root directory of the dataset.
+            - max_workers: Number of parallel processes (defaults to number of CPU cores).
+            - keep_ratio: Proportion of frames to keep (0 < keep_ratio <= 1).
+            - filter_fn: Function to select frames (must be defined at the global level).
+            - image_selection_config: Configuration object for the filter function (if needed).
+            Returns a structured dictionary with the mapping of subjects to their real/spoof frames.
+        """
         # Initialize the new structure
         final_output = {
             'metadata': {
@@ -132,7 +147,11 @@ class DataMapArchitect:
 
         return final_output
 
-    def save_to_json(self, save_path, data_map, keep_ratio = 1.0, filter_fn=None, image_selection_config=None):
+    def save_to_json(self, save_path, data_map):
+        """Saves the data map to a JSON file, ensuring that all data types are JSON-serializable.
+         - save_path: The file path where the JSON will be saved.
+         - data_map: The dictionary containing the data map to be saved."""
+        
         
         
         def default_conv(obj):

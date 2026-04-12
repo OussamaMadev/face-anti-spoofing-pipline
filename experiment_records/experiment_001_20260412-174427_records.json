@@ -1,0 +1,108 @@
+{
+    "metadata": {
+        "experiment_id": "experiment_001",
+        "status": "completed",
+        "notes": "Testing the training pipeline with a simple configuration."
+    },
+    "records": [
+        {
+            "config": {
+                "data_params": {
+                    "dataset_path": "data/CASIA_FASD_v3/DATA",
+                    "input_size": [
+                        224,
+                        224,
+                        3
+                    ],
+                    "pixel_range": [
+                        0.0,
+                        1.0
+                    ],
+                    "batch_size": 32
+                },
+                "filtering_params": {
+                    "keep_ratio": 0.8,
+                    "data_map_path": "data_maps/CASIA_FASD_v3_10percent_BCMSelection.json"
+                },
+                "augmentation_params": {
+                    "rotation_range": 0.15,
+                    "horizontal_flip": 0,
+                    "brightness_range": [
+                        0.8,
+                        1.2
+                    ],
+                    "zoom_range": 0.1
+                },
+                "model_params": {
+                    "architecture": "model_architecture_example",
+                    "parameters_count": 3500000
+                },
+                "training_params": {
+                    "early_stopping_patience": 5,
+                    "learning_rate": 0.0001,
+                    "steps_per_epoch": 100,
+                    "initial_epochs": 10
+                }
+            },
+            "logs": {
+                "best_model_name": "experiment_001__model_0.keras",
+                "training_history": {
+                    "accuracy": [
+                        0.6165624856948853,
+                        0.7215625047683716,
+                        0.7900000214576721,
+                        0.8381249904632568,
+                        0.8628125190734863,
+                        0.8837500214576721
+                    ],
+                    "eer": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "loss": [
+                        0.6548619270324707,
+                        0.5603163242340088,
+                        0.4968365728855133,
+                        0.43211230635643005,
+                        0.3831201195716858,
+                        0.33729058504104614
+                    ],
+                    "val_accuracy": [
+                        0.8273208141326904,
+                        0.8561808466911316,
+                        0.8480038642883301,
+                        0.8633958697319031,
+                        0.8710918426513672,
+                        0.8811928629875183
+                    ],
+                    "val_eer": [
+                        0.32325141776937616,
+                        0.23944549464398235,
+                        0.20415879017013233,
+                        0.18777567737870196,
+                        0.18399495904221802,
+                        0.1600504095778198
+                    ],
+                    "val_loss": [
+                        0.532425045967102,
+                        0.46125197410583496,
+                        0.4534011483192444,
+                        0.42132803797721863,
+                        0.365914911031723,
+                        0.33774685859680176
+                    ]
+                },
+                "epochs": 6,
+                "final_test_metrics": {
+                    "loss": 0.5319739580154419,
+                    "accuracy": 0.7705336213111877,
+                    "eer": 0.28575813382443216
+                }
+            }
+        }
+    ]
+}

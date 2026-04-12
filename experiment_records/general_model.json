@@ -1,0 +1,96 @@
+{
+    "metadata": {
+        "experiment_id": "EXP_2026_001",
+        "status": "completed",
+        "notes": " "
+    },
+    "records": [
+        {
+            "config": {
+                "data_params": {
+                    "dataset_name": "CASIA_FASD_v3",
+                    "input_size": [
+                        224,
+                        224,
+                        3
+                    ],
+                    "pixel_range": [
+                        0.0,
+                        1.0
+                    ],
+                    "batch_size": 32
+                },
+                "filtering_params": {
+                    "keep_ratio": 0.8,
+                    "data_map": "CASIA_FASD_v3_data_map.json",
+                    "filter_function": "brightness_contrast_movement_based_selecting"
+                },
+                "augmentation_params": {
+                    "rotation_range": 0.15,
+                    "horizontal_flip": 0,
+                    "brightness_range": [
+                        0.8,
+                        1.2
+                    ],
+                    "zoom_range": 0.1
+                },
+                "model_params": {
+                    "architecture": "MobileNetV2",
+                    "parameters_count": 3500000
+                },
+                "training_params": {
+                    "early_stopping_patience": 5,
+                    "learning_rate": 0.0001,
+                    "steps_per_epoch": 100,
+                    "initial_epochs": 10
+                }
+            },
+            "logs": {
+                "training_history": {
+                    "accuracy": [
+                        0.60,
+                        0.75,
+                        0.88,
+                        0.91,
+                        0.94
+                    ],
+                    "loss": [
+                        0.65,
+                        0.45,
+                        0.30,
+                        0.25,
+                        0.20
+                    ],
+                    "val_accuracy": [
+                        0.65,
+                        0.78,
+                        0.85,
+                        0.89,
+                        0.90
+                    ],
+                    "val_loss": [
+                        0.60,
+                        0.40,
+                        0.35,
+                        0.30,
+                        0.28
+                    ],
+                    "val_eer": [
+                        0.35,
+                        0.22,
+                        0.15,
+                        0.12,
+                        0.10
+                    ]
+                },
+                "epochs": 5,
+                "final_test_metrics": {
+                    "loss": 0.275,
+                    "accuracy": 0.912,
+                    "eer": 0.095
+                },
+                "model_weights_path": "models/EXP_2026_001_final_weights.h5"
+            }
+        }
+    ]
+}
