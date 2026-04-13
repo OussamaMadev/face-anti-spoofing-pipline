@@ -6,7 +6,8 @@ import tensorflow as tf
 import numpy as np
 from unittest.mock import MagicMock, patch
 from trainingPipeline import TrainingPipeline, EERCallback
-from trainingPipeline import model_architecture_example,TrainingPipeline,EERCallback
+from trainingPipeline import TrainingPipeline,EERCallback
+from models import model_architecture_example
 
 
 def mock_architecture(input_shape):
@@ -33,7 +34,10 @@ class TestTrainingPipeline(unittest.TestCase):
         # Create a dummy data map JSON
         self.data_map_path = os.path.join(self.test_dir, "map.json")
         with open(self.data_map_path, "w") as f:
-            json.dump({"subjects": {}}, f)
+            json.dump({"metadata": {
+                    "keep_ratio": 0.8999999999999999,
+                    "filter_function": "brightness_contrast_movement_based_selecting"},
+                "subjects": {}}, f)
 
         # Dummy Dataset Path
         self.dataset_path = os.path.join(self.test_dir, "dataset")

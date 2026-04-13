@@ -26,12 +26,6 @@ def SimpleCasiaNet(input_shape=(224, 224, 3)):
   model.add(layers.Dropout(0.5))
   model.add(layers.Dense(1, activation='sigmoid')) 
 
-  model.compile(
-      optimizer=tf.keras.optimizers.Adam(learning_rate=0.0001),
-      loss = tf.keras.losses.BinaryCrossentropy(),
-      metrics=['accuracy']
-  )
-
   return model
 
 def model_architecture_example(input_shape=(224, 224, 3)):

@@ -37,7 +37,8 @@ class TrainingPipeline:
         self.configs = configs
         self.val_configs()  # Validate configurations before proceeding
         
-        self.experiment_id = experiment_id
+        timestamp = time.strftime("%Y%m%d-%H%M%S")
+        self.experiment_id =  f"{experiment_id}_{timestamp}"
         self.logs_output_path = logs_output_path
         self.models_output_path = models_output_path
 
@@ -47,9 +48,8 @@ class TrainingPipeline:
         if not os.path.exists(models_output_path):
             raise ValueError(f"Models output path '{models_output_path}' does not exist. Please create it before running the pipeline.")
         
-        timestamp = time.strftime("%Y%m%d-%H%M%S")
         
-        self.record_file = os.path.join(self.logs_output_path, f"{experiment_id}_{timestamp}_records.json")
+        self.record_file = os.path.join(self.logs_output_path, f"{self.experiment_id}_records.json")
         self.master_record = {
             "metadata": {"experiment_id": experiment_id, "status": "initialized", "notes": note},
             "records": []
@@ -65,10 +65,10 @@ class TrainingPipeline:
                 if key not in cfg:
                     raise ValueError(f"Config {i} is missing required key: '{key}'")
         
-        models = [cfg["model_params"]["architecture"] for cfg in self.configs]
+        models = [cfg["model_params"]["model_init_function"] for cfg in self.configs]
         for i, model_fn in enumerate(models):
             if not callable(model_fn):
-                raise ValueError(f"Config {i} has an invalid model architecture: '{model_fn}' is not callable.")
+                raise ValueError(f"Config {i} has an invalid  model_init_function: '{model_fn}' is not callable.")
 
         dataset_paths = [cfg["data_params"]["dataset_path"] for cfg in self.configs]
         for i, path in enumerate(dataset_paths):
@@ -127,7 +127,7 @@ class TrainingPipeline:
         t_params = cfg["training_params"]
         d_params = cfg["data_params"]
 
-        arch_fn = m_params["architecture"]
+        arch_fn = m_params["model_init_function"]
 
         input_shape = tuple(d_params["input_size"]) 
         model = arch_fn(input_shape=input_shape)
@@ -157,13 +157,17 @@ class TrainingPipeline:
         test_subs = all_subjects[30:] 
            
         for i, cfg in enumerate(self.configs):
+            
             print(f"\n--- Running Sub-Experiment {i+1}/{len(self.configs)} ---")
             print("Configuration:")
-            print(cfg)
 
-            model_name = f"{self.experiment_id}__model_{i}.keras"
-            
+            model = self.init_model(cfg)
+            model_name = f"{self.experiment_id}_{i}_model_{model.name}.keras" 
             model_path = f"{self.models_output_path}/{model_name}"
+            
+            cfg['model_params']['parameters_count'] = model.count_params()
+            cfg['model_params']['architecture'] = model.name
+            
             entry = {
                 "config": self._sanitize_config(cfg),
                 "logs": {
@@ -172,23 +176,24 @@ class TrainingPipeline:
             }
             self.master_record["records"].append(entry)
             self._save_state()
+            print(cfg)
+        
             
-            
+            # Build data pipelines
             dlp = DataLoaderPipeline(
                 data_params=cfg['data_params'],
                 filtering_params=cfg['filtering_params'], 
                 augmentation_params=cfg['augmentation_params']
                 )
-            
             train_ds = dlp.build_pipeline(train_subs, balanced=True, augment=True)
             val_ds = dlp.build_pipeline(val_subs, balanced=False , augment=False, shuffle=False)
             test_ds = dlp.build_pipeline(test_subs, balanced=False, augment=False, shuffle=False)           
             
+            # training with custom EER callback and early stopping based on EER
 
-            model = self.init_model(cfg)
             callbacks = [
                 EERCallback(val_ds),  # Custom callback for single-pass EER evaluation
-                tf.keras.callbacks.EarlyStopping(monitor="eer", 
+                tf.keras.callbacks.EarlyStopping(monitor="val_eer", 
                                                 patience=cfg["training_params"]["early_stopping_patience"], 
                                                 mode="min", 
                                                 restore_best_weights=True,
@@ -196,7 +201,7 @@ class TrainingPipeline:
                 
                 tf.keras.callbacks.ModelCheckpoint(model_path, 
                                                    save_best_only=True, 
-                                                   monitor='eer',
+                                                   monitor='val_eer',
                                                    mode='min',
                                                    verbose=1)
                                                    
@@ -209,10 +214,9 @@ class TrainingPipeline:
                 verbose=2,
                 callbacks=callbacks
             )
-            
             final_test_metrics = self.compute_single_pass_metrics(test_ds, model)
             
-            self.master_record["records"][i]["model_params"]["parameters_count"] = model.count_params()
+            # Update master record with training history and final test metrics
             self.master_record["records"][i]["logs"]["training_history"] = history.history
             self.master_record["records"][i]["logs"]["epochs"] = len(history.history['loss'])
             self.master_record["records"][i]["logs"]["final_test_metrics"] = final_test_metrics
