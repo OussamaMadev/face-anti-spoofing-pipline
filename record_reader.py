@@ -14,10 +14,15 @@ def parse_experiment_records(json_path):
             "model": record['config']['model_params']['architecture'],
             "lr": record['config']['training_params']['learning_rate'],
             "epochs": record['logs']['epochs'],
+            
             "final_test_loss": record['logs']['final_test_metrics']['loss'],
             "final_test_acc": record['logs']['final_test_metrics']['accuracy'],
             "final_test_eer": record['logs']['final_test_metrics']['eer'],
+            
             "data_augmentation": record['config']['augmentation_params'],
+            
+            "filtering_ratio ": (record['config']['filtering_params']['keep_ratio'] ),
+            "filtering_method ": (record['config']['filtering_params']['filter_function'] ),
             "filtering_parameters ": (record['config']['filtering_params'] , "see the file for more details"),
         }
         summaries.append(res)

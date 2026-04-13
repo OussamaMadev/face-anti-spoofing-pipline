@@ -357,6 +357,7 @@ class DataLoaderPipeline:
         # Initialize pixel range tracking.
         min_pixel = self.pix_range[1]  # Start from the expected maximum.
         max_pixel = self.pix_range[0]  # Start from the expected minimum.
+        batchs = batchs if batchs > 0 else len(dataset)  # Handle negative or zero batch count as "all batches".
 
         print(f"Auditing up to {batchs} batches...")
 

@@ -51,7 +51,7 @@ class TrainingPipeline:
         
         self.record_file = os.path.join(self.logs_output_path, f"{self.experiment_id}_records.json")
         self.master_record = {
-            "metadata": {"experiment_id": experiment_id, "status": "initialized", "notes": note},
+            "metadata": {"experiment_id": self.experiment_id, "status": "initialized", "notes": note},
             "records": []
         }
 
