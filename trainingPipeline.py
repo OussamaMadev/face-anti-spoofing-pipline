@@ -83,9 +83,6 @@ class TrainingPipeline:
             if not "initial_epochs" in cfg["training_params"] or (cfg["training_params"]["initial_epochs"] <= 0):
                 raise ValueError(f"Config {i} has invalid 'initial_epochs': must be > 0.")
             
-            if not "steps_per_epoch" in cfg["training_params"] or (cfg["training_params"]["steps_per_epoch"] <= 0):
-                raise ValueError(f"Config {i} has invalid 'steps_per_epoch': must be > 0.")
-            
             if not "batch_size" in cfg["data_params"] or cfg["data_params"]["batch_size"] <= 0:
                 raise ValueError(f"Config {i} has invalid 'batch_size': must be a positive integer.")
             
@@ -191,7 +188,6 @@ class TrainingPipeline:
                 )
             
             is_val_ds_balanced = cfg["data_params"].get("validation_dataset_baleance", 0) == 1
-            print(f"is_val_ds_balanced: {is_val_ds_balanced}")
             
             train_ds = dlp.build_pipeline(train_subs, balanced=True, augment=True)
             val_ds = dlp.build_pipeline(val_subs, balanced=is_val_ds_balanced, augment=False, shuffle=False)
