@@ -175,6 +175,7 @@ class DataLoaderPipeline:
         img = tf.image.decode_jpeg(img, channels=3)
 
         # Resize to the model input shape.
+        # todo : cosider using other downscaling methods like area or gaussian for better quality, especially if the original images are much larger than the target size.
         img = tf.image.resize(img, self.img_size)
 
        # Assuming self.pix_range is a tuple like (0.0, 1.0) or (-1.0, 1.0)
@@ -220,7 +221,9 @@ class DataLoaderPipeline:
             delta = br_range[1] - 1.0
             img = tf.image.random_brightness(img, max_delta=delta)
         
-        img = tf.image.random_contrast(img, lower=0.8, upper=1.2)
+        # todo  : add contrast augmentation with a range in aug_params
+        ct_range = self.aug_params.get("contrast_range", [0.9, 1.1])
+        img = tf.image.random_contrast(img, lower=ct_range[0], upper=ct_range[1])
 
         # 4. Zoom / Crop
         zoom = self.aug_params.get("zoom_range", 0)
@@ -244,6 +247,13 @@ class DataLoaderPipeline:
         """
         Build a tf.data pipeline for the selected subjects.
 
+        when balanced is True,
+        This method implements a probabilistic sampling pipeline using sample_from_datasets. 
+        This ensures a uniform class distribution within every training batch, 
+        which stabilizes the gradients and prevents the model from developing 
+        a majority-class bias during the backpropagation phase.
+        
+
         Args:
             subject_ids: List of subject IDs to include.
             balanced: If True, sample real and spoof data equally.
@@ -253,50 +263,55 @@ class DataLoaderPipeline:
         Returns:
             A batched and prefetched tf.data.Dataset.
         """
-        # Collect all file paths for the requested subjects.
+
         real_p, spoof_p = self._get_paths_by_subjects(subject_ids)
-
-        # To ensure maximum stochasticity during training, a global shuffle was applied 
-        # to the file path metadata prior to dataset instantiation, bypassing the windowing 
-        # limitations of standard buffer-based shuffling mechanisms.
+        
+        # 1. Scientific Reproducibility
         if shuffle:
-            random.seed(42) # Optional: Set seed for reproducibility in your thesis
-            random.shuffle(real_p)
-            random.shuffle(spoof_p)
+            # Use a fixed seed for thesis consistency, but different from train to val
+            seed = 42 if 1 in subject_ids else 123 
+            random.Random(seed).shuffle(real_p)
+            random.Random(seed).shuffle(spoof_p)
 
-        # Create labels for each class.
-        real_labels = [1] * len(real_p)   # Real samples get label 1.
-        spoof_labels = [0] * len(spoof_p)  # Spoof samples get label 0.
+        real_labels = [1] * len(real_p)
+        spoof_labels = [0] * len(spoof_p)
 
-        # Build class-specific datasets from file paths and labels.
+        # 2. Dataset Creation
         real_ds = tf.data.Dataset.from_tensor_slices((real_p, real_labels))
         spoof_ds = tf.data.Dataset.from_tensor_slices((spoof_p, spoof_labels))
 
-        # Shuffle each class stream independently when requested.
-        # if shuffle:
-        #     real_ds = real_ds.shuffle(min(1000, len(real_p) + 1))
-        #     spoof_ds = spoof_ds.shuffle(min(1000, len(spoof_p) + 1))
-
-        # Combine datasets either with balanced sampling or simple concatenation.
         if balanced:
-            # Repeat both datasets indefinitely and sample them with equal weights.
+            # Calculate the size of the balanced dataset (oversampling minority)
+            # In CASIA, Spoof is usually the majority, Real is minority
+            target_size = max(len(real_p), len(spoof_p)) * 2
+            
+            # sample_from_datasets creates a balanced stream
             ds = tf.data.Dataset.sample_from_datasets(
                 [real_ds.repeat(), spoof_ds.repeat()],
                 weights=[0.5, 0.5],
+                stop_on_empty_dataset=False # Keep it infinite for better sampling
             )
+            # CRITICAL: We must limit the infinite stream to a fixed size 
+            # so Keras can calculate progress bars and steps
+            ds = ds.take(target_size)
         else:
-            # Concatenate datasets for validation/test-style iteration.
             ds = real_ds.concatenate(spoof_ds)
+            target_size = len(real_p) + len(spoof_p)
 
-        # Read files, decode images, resize, and normalize.
-        ds = ds.map(self._base_preprocess, num_parallel_calls=self.AUTOTUNE)
+        # 3. Efficient Pipeline Order: Preprocess -> Augment -> Batch -> Prefetch
+        # Note: Shuffling should happen BEFORE mapping if the dataset is small
+        if shuffle:
+            ds = ds.shuffle(buffer_size=target_size)
 
-        # Apply augmentation only when explicitly requested.
+        ds = ds.map(self._base_preprocess, num_parallel_calls=tf.data.AUTOTUNE)
+
         if augment:
-            ds = ds.map(self._apply_augmentation, num_parallel_calls=self.AUTOTUNE)
-
-        # Batch and prefetch for performance.
-        return ds.batch(self.batch_size).prefetch(self.AUTOTUNE)
+            ds = ds.map(self._apply_augmentation, num_parallel_calls=tf.data.AUTOTUNE)
+            
+        # 4. Final Optimization
+        ds = ds.batch(self.batch_size).prefetch(tf.data.AUTOTUNE)
+                
+        return ds
 
     # -------------------------------------------------------------------------
     # 5) VISUALIZATION

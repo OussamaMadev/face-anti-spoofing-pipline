@@ -60,41 +60,45 @@ class TrainingPipeline:
     def val_configs(self):
         """Validates the provided configurations for completeness and correctness."""
         required_keys = ["data_params", "filtering_params", "model_params", "training_params"]
+  
         for i, cfg in enumerate(self.configs):
             for key in required_keys:
                 if key not in cfg:
                     raise ValueError(f"Config {i} is missing required key: '{key}'")
         
-        models = [cfg["model_params"]["model_init_function"] for cfg in self.configs]
-        for i, model_fn in enumerate(models):
-            if not callable(model_fn):
-                raise ValueError(f"Config {i} has an invalid  model_init_function: '{model_fn}' is not callable.")
-
-        dataset_paths = [cfg["data_params"]["dataset_path"] for cfg in self.configs]
-        for i, path in enumerate(dataset_paths):
-            if not os.path.exists(path):
-                raise ValueError(f"Config {i} has an invalid dataset path: '{path}' does not exist.")
+            dataset_path = cfg["data_params"]["dataset_path"] 
+            if not os.path.exists(dataset_path):
+                raise ValueError(f"Config {i} has an invalid dataset path: '{dataset_path}' does not exist.")
             
-        data_maps = [cfg["filtering_params"]["data_map_path"] for cfg in self.configs]
-        for i, dm in enumerate(data_maps):
+            if not "input_size" in cfg["data_params"] or len(cfg["data_params"]["input_size"]) != 3:
+                raise ValueError(f"Config {i} has invalid 'input_size': must be a list of three values [height, width, channels].")
+            
+            if not "pixel_range" in cfg["data_params"] or len(cfg["data_params"]["pixel_range"]) != 2 or cfg["data_params"]["pixel_range"][0] >= cfg["data_params"]["pixel_range"][1]:
+                raise ValueError(f"Config {i} has invalid 'pixel_range': must be a list of two values [min, max].")
+        
+            dm = cfg["filtering_params"]["data_map_path"]
             if not os.path.exists(dm):
                 raise ValueError(f"Config {i} has an invalid data map path: '{dm}' does not exist.")
-        
-        for i, cfg in enumerate(self.configs):
+                
             if not "initial_epochs" in cfg["training_params"] or (cfg["training_params"]["initial_epochs"] <= 0):
                 raise ValueError(f"Config {i} has invalid 'initial_epochs': must be > 0.")
             
             if not "steps_per_epoch" in cfg["training_params"] or (cfg["training_params"]["steps_per_epoch"] <= 0):
                 raise ValueError(f"Config {i} has invalid 'steps_per_epoch': must be > 0.")
             
-            if not "pixel_range" in cfg["data_params"] or len(cfg["data_params"]["pixel_range"]) != 2:
-                raise ValueError(f"Config {i} has invalid 'pixel_range': must be a list of two values [min, max].")
-            
-            if not "input_size" in cfg["data_params"] or len(cfg["data_params"]["input_size"]) != 3:
-                raise ValueError(f"Config {i} has invalid 'input_size': must be a list of three values [height, width, channels].")
-            
             if not "batch_size" in cfg["data_params"] or cfg["data_params"]["batch_size"] <= 0:
                 raise ValueError(f"Config {i} has invalid 'batch_size': must be a positive integer.")
+            
+            if not "learning_rate" in cfg["training_params"] or cfg["training_params"]["learning_rate"] <= 0:
+                raise ValueError(f"Config {i} has invalid 'learning_rate': must be > 0.")
+            
+            if not "early_stopping_patience" in cfg["training_params"] or cfg["training_params"]["early_stopping_patience"] < 0:
+                raise ValueError(f"Config {i} has invalid 'early_stopping_patience': must be >= 0.")
+            
+            model_init_function = cfg["model_params"].get("model_init_function", None)
+            if not model_init_function or not callable(model_init_function):
+                raise ValueError(f"Config {i} has an invalid  model_init_function: '{model_init_function}' is not callable.")
+            
             
         print("All configurations validated successfully.")
 
@@ -152,9 +156,9 @@ class TrainingPipeline:
         self.master_record["metadata"]["status"] = "running"
 
         all_subjects = [f"{i:02d}" for i in range(1, 51)]
-        train_subs = all_subjects[:20]
-        val_subs = all_subjects[20:30]
-        test_subs = all_subjects[30:] 
+        train_subs = all_subjects[:15]
+        val_subs = all_subjects[15:20]
+        test_subs = all_subjects[20:] 
            
         for i, cfg in enumerate(self.configs):
             
@@ -185,8 +189,12 @@ class TrainingPipeline:
                 filtering_params=cfg['filtering_params'], 
                 augmentation_params=cfg['augmentation_params']
                 )
+            
+            is_val_ds_balanced = cfg["data_params"].get("validation_dataset_baleance", 0) == 1
+            print(f"is_val_ds_balanced: {is_val_ds_balanced}")
+            
             train_ds = dlp.build_pipeline(train_subs, balanced=True, augment=True)
-            val_ds = dlp.build_pipeline(val_subs, balanced=False , augment=False, shuffle=False)
+            val_ds = dlp.build_pipeline(val_subs, balanced=is_val_ds_balanced, augment=False, shuffle=False)
             test_ds = dlp.build_pipeline(test_subs, balanced=False, augment=False, shuffle=False)           
             
             # training with custom EER callback and early stopping based on EER
