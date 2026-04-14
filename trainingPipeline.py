@@ -218,7 +218,6 @@ class TrainingPipeline:
                 train_ds,
                 validation_data=val_ds,
                 epochs=cfg["training_params"]["initial_epochs"],
-                steps_per_epoch=cfg["training_params"]["steps_per_epoch"],
                 verbose=2,
                 callbacks=callbacks
             )
