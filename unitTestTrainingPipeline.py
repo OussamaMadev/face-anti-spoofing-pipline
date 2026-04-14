@@ -7,7 +7,7 @@ import numpy as np
 from unittest.mock import MagicMock, patch
 from trainingPipeline import TrainingPipeline, EERCallback
 from trainingPipeline import TrainingPipeline,EERCallback
-from models import model_architecture_example
+from architectures import model_architecture_example
 
 
 def mock_architecture(input_shape):
