@@ -218,6 +218,7 @@ class TrainingPipeline:
                 callbacks=callbacks
             )
             final_test_metrics = self.compute_single_pass_metrics(test_ds, model)
+            print(f"Final Test Metrics for Sub-Experiment {i+1}: {final_test_metrics}")
             
             # Update master record with training history and final test metrics
             self.master_record["records"][i]["logs"]["training_history"] = history.history
