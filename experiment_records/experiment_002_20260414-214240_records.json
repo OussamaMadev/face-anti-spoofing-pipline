@@ -2,7 +2,7 @@
     "metadata": {
         "experiment_id": "experiment_001_20260414-214240",
         "status": "completed",
-        "notes": "Testing the training pipeline with a simple configuration."
+        "notes": "testing the new split (val ds cut out from train ds ) and val ds balenced"
     },
     "records": [
         {
