@@ -1,0 +1,105 @@
+{
+    "metadata": {
+        "experiment_id": "experiment_001_20260414-214240",
+        "status": "completed",
+        "notes": "Testing the training pipeline with a simple configuration."
+    },
+    "records": [
+        {
+            "config": {
+                "data_params": {
+                    "dataset_path": "/content/CASIA/DATA",
+                    "input_size": [
+                        224,
+                        224,
+                        3
+                    ],
+                    "pixel_range": [
+                        0.0,
+                        1.0
+                    ],
+                    "batch_size": 32,
+                    "validation_dataset_baleance": 1
+                },
+                "filtering_params": {
+                    "data_map_path": "/content/face-anti-spoofing-pipline/data_maps/CASIA_FASD_V3_10percent_uniformSampling.json",
+                    "keep_ratio": 0.1,
+                    "filter_function": "uniform_sampling"
+                },
+                "augmentation_params": {
+                    "rotation_range": 0.1,
+                    "horizontal_flip": 1,
+                    "brightness_range": [
+                        0.9,
+                        1.1
+                    ],
+                    "zoom_range": 0.1
+                },
+                "model_params": {
+                    "model_init_function": "build_mc_cdcn_model",
+                    "architecture": "MC_CDCN",
+                    "parameters_count": 1259906,
+                    "note": null
+                },
+                "training_params": {
+                    "early_stopping_patience": 5,
+                    "learning_rate": 0.0001,
+                    "initial_epochs": 5
+                }
+            },
+            "logs": {
+                "best_model_name": "experiment_001_20260414-214240_0_model_MC_CDCN.keras",
+                "training_history": {
+                    "accuracy": [
+                        0.6847496032714844,
+                        0.8423748016357422,
+                        0.8676024079322815,
+                        0.8901745080947876,
+                        0.9081942439079285
+                    ],
+                    "eer": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "loss": [
+                        2.5576748847961426,
+                        1.8687375783920288,
+                        1.577575922012329,
+                        1.3550459146499634,
+                        1.1970593929290771
+                    ],
+                    "val_accuracy": [
+                        0.4928741157054901,
+                        0.5089073777198792,
+                        0.6336104273796082,
+                        0.9364607930183411,
+                        0.9435867071151733
+                    ],
+                    "val_eer": [
+                        0.22365339578454332,
+                        0.2224824355971897,
+                        0.07611241217798595,
+                        0.03044496487119438,
+                        0.0351288056206089
+                    ],
+                    "val_loss": [
+                        2.4057090282440186,
+                        2.3057048320770264,
+                        1.880645513534546,
+                        1.217716932296753,
+                        1.0691720247268677
+                    ]
+                },
+                "epochs": 5,
+                "final_test_metrics": {
+                    "loss": 0.7286351323127747,
+                    "accuracy": 0.7476900219917297,
+                    "eer": 0.17731472380577945
+                }
+            }
+        }
+    ]
+}
