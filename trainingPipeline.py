@@ -153,12 +153,29 @@ class TrainingPipeline:
         self.master_record["metadata"]["status"] = "running"
 
         all_subjects = [f"{i:02d}" for i in range(1, 51)]
-        train_subs = all_subjects[:15]
-        val_subs = all_subjects[15:20]
-        test_subs = all_subjects[20:] 
+        test_subs = all_subjects[20:]
+        global_training_subjects = all_subjects[:20]
+        global_training_subjects_shuffled = np.random.permutation(global_training_subjects)
+
            
         for i, cfg in enumerate(self.configs):
             
+            validation_subjects_num = cfg["data_params"].get("validation_subjects_number", 0) 
+            get_random_subjects_for_validation = cfg["data_params"].get("get_random_subjects_for_validation", 0) == 1
+            
+            if not validation_subjects_num : 
+                train_subs = global_training_subjects
+                val_subs = None
+            else:
+                if get_random_subjects_for_validation:
+                    val_subs = global_training_subjects_shuffled[:validation_subjects_num]
+                    train_subs = global_training_subjects_shuffled[validation_subjects_num:]
+                else:
+                    val_subs = global_training_subjects[:validation_subjects_num]
+                    train_subs = global_training_subjects[validation_subjects_num:20]
+
+            print(train_subs, val_subs, test_subs)
+
             print(f"\n--- Running Sub-Experiment {i+1}/{len(self.configs)} ---")
             print("Configuration:")
 
@@ -190,26 +207,34 @@ class TrainingPipeline:
             is_val_ds_balanced = cfg["data_params"].get("validation_dataset_baleance", 0) == 1
             
             train_ds = dlp.build_pipeline(train_subs, balanced=True, augment=True)
-            val_ds = dlp.build_pipeline(val_subs, balanced=is_val_ds_balanced, augment=False, shuffle=False)
-            test_ds = dlp.build_pipeline(test_subs, balanced=False, augment=False, shuffle=False)           
             
-            # training with custom EER callback and early stopping based on EER
+            if validation_subjects_num :  # Only build validation dataset if there are validation subjects
+                val_ds = dlp.build_pipeline(val_subs, balanced=is_val_ds_balanced, augment=False, shuffle=False)
+                callbacks = [
+                    EERCallback(val_ds),  # Custom callback for single-pass EER evaluation
+                    tf.keras.callbacks.EarlyStopping(monitor="val_eer", 
+                                                    patience=cfg["training_params"]["early_stopping_patience"], 
+                                                    mode="min", 
+                                                    restore_best_weights=True,
+                                                    verbose=1), 
+                    
+                    tf.keras.callbacks.ModelCheckpoint(model_path, 
+                                                    save_best_only=True, 
+                                                    monitor='val_eer',
+                                                    mode='min',
+                                                    verbose=1)
+                                                    
+                ]
+            else :
+                val_ds = None
+                callbacks = [
+                    tf.keras.callbacks.ModelCheckpoint(model_path,
+                                                        monitor='accuracy', 
+                                                        save_best_only=True, 
+                                                        mode='max',
+                                                        verbose=1)
+                ]
 
-            callbacks = [
-                EERCallback(val_ds),  # Custom callback for single-pass EER evaluation
-                tf.keras.callbacks.EarlyStopping(monitor="val_eer", 
-                                                patience=cfg["training_params"]["early_stopping_patience"], 
-                                                mode="min", 
-                                                restore_best_weights=True,
-                                                verbose=1), 
-                
-                tf.keras.callbacks.ModelCheckpoint(model_path, 
-                                                   save_best_only=True, 
-                                                   monitor='val_eer',
-                                                   mode='min',
-                                                   verbose=1)
-                                                   
-            ]
             history = model.fit(
                 train_ds,
                 validation_data=val_ds,
@@ -217,6 +242,8 @@ class TrainingPipeline:
                 verbose=2,
                 callbacks=callbacks
             )
+            
+            test_ds = dlp.build_pipeline(test_subs, balanced=False, augment=False, shuffle=False)           
             final_test_metrics = self.compute_single_pass_metrics(test_ds, model)
             print(f"Final Test Metrics for Sub-Experiment {i+1}: {final_test_metrics}")
             
