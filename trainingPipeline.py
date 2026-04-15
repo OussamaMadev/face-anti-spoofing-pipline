@@ -174,8 +174,7 @@ class TrainingPipeline:
                     val_subs = global_training_subjects[:validation_subjects_num]
                     train_subs = global_training_subjects[validation_subjects_num:20]
 
-            print(train_subs, val_subs, test_subs)
-
+            
             print(f"\n--- Running Sub-Experiment {i+1}/{len(self.configs)} ---")
             print("Configuration:")
 
