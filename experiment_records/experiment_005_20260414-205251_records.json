@@ -1,0 +1,489 @@
+{
+    "metadata": {
+        "experiment_id": "experiment_005_20260414-205251",
+        "status": "completed",
+        "notes": "testing the new split (val ds cut out from train ds ) and val ds balenced"
+    },
+    "records": [
+        {
+            "config": {
+                "filtering_params": {
+                    "data_map_path": "/kaggle/working/face-anti-spoofing-pipline/data_maps/CASIA_FASD_V3_all.json",
+                    "keep_ratio": 1.0,
+                    "filter_function": "uniform_sampling"
+                },
+                "data_params": {
+                    "dataset_path": "/kaggle/input/datasets/maameri/visual-computing-thesis-data/DATA",
+                    "input_size": [
+                        224,
+                        224,
+                        3
+                    ],
+                    "pixel_range": [
+                        0.0,
+                        1.0
+                    ],
+                    "batch_size": 32,
+                    "validation_dataset_baleance": 1
+                },
+                "augmentation_params": {
+                    "rotation_range": 0.1,
+                    "horizontal_flip": 1,
+                    "brightness_range": [
+                        0.9,
+                        1.1
+                    ],
+                    "zoom_range": 0.1
+                },
+                "model_params": {
+                    "model_init_function": "mc_resnet_rgb_hsv",
+                    "architecture": "MC-ResNet-RGB-HSV",
+                    "parameters_count": 392504,
+                    "note": null
+                },
+                "training_params": {
+                    "early_stopping_patience": 5,
+                    "learning_rate": 0.0001,
+                    "initial_epochs": 30
+                }
+            },
+            "logs": {
+                "best_model_name": "experiment_005_20260414-205251_0_model_MC-ResNet-RGB-HSV.keras",
+                "training_history": {
+                    "accuracy": [
+                        0.9402768015861511,
+                        0.9938357472419739,
+                        0.9955997467041016,
+                        0.9970729351043701,
+                        0.9976738691329956,
+                        0.9977126717567444,
+                        0.9983910918235779,
+                        0.9992827773094177,
+                        0.997925877571106
+                    ],
+                    "eer": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "loss": [
+                        1.4469797611236572,
+                        0.43619874119758606,
+                        0.18952614068984985,
+                        0.09468347579240799,
+                        0.05653218924999237,
+                        0.039292629808187485,
+                        0.027115458622574806,
+                        0.018272845074534416,
+                        0.018051132559776306
+                    ],
+                    "val_accuracy": [
+                        0.9869459867477417,
+                        0.9967213273048401,
+                        0.9911354184150696,
+                        0.9995142817497253,
+                        0.9952033758163452,
+                        0.995749831199646,
+                        0.9975713491439819,
+                        0.9994535446166992,
+                        0.9989678263664246
+                    ],
+                    "val_eer": [
+                        0.0029158060988944234,
+                        0.0018223788118090147,
+                        0.0014579030494472117,
+                        0.0,
+                        0.007289515247236059,
+                        0.00206536265338355,
+                        0.001336411128659944,
+                        0.0006074596039363382,
+                        0.0009719353662981412
+                    ],
+                    "val_loss": [
+                        0.6718987822532654,
+                        0.26615840196609497,
+                        0.13891854882240295,
+                        0.0639817863702774,
+                        0.051334913820028305,
+                        0.03704846277832985,
+                        0.026397395879030228,
+                        0.013988666236400604,
+                        0.014394856058061123
+                    ]
+                },
+                "epochs": 9,
+                "final_test_metrics": {
+                    "loss": 0.17877858877182007,
+                    "accuracy": 0.9601086378097534,
+                    "eer": 0.053521466959199696
+                }
+            }
+        },
+        {
+            "config": {
+                "filtering_params": {
+                    "data_map_path": "/kaggle/working/face-anti-spoofing-pipline/data_maps/CASIA_FASD_V3_50percent_uniformSampling.json",
+                    "keep_ratio": 0.5,
+                    "filter_function": "uniform_sampling"
+                },
+                "data_params": {
+                    "dataset_path": "/kaggle/input/datasets/maameri/visual-computing-thesis-data/DATA",
+                    "input_size": [
+                        224,
+                        224,
+                        3
+                    ],
+                    "pixel_range": [
+                        0.0,
+                        1.0
+                    ],
+                    "batch_size": 32,
+                    "validation_dataset_baleance": 1
+                },
+                "augmentation_params": {
+                    "rotation_range": 0.1,
+                    "horizontal_flip": 1,
+                    "brightness_range": [
+                        0.9,
+                        1.1
+                    ],
+                    "zoom_range": 0.1
+                },
+                "model_params": {
+                    "model_init_function": "mc_resnet_rgb_hsv",
+                    "architecture": "MC-ResNet-RGB-HSV",
+                    "parameters_count": 392504,
+                    "note": null
+                },
+                "training_params": {
+                    "early_stopping_patience": 5,
+                    "learning_rate": 0.0001,
+                    "initial_epochs": 30
+                }
+            },
+            "logs": {
+                "best_model_name": "experiment_005_20260414-205251_1_model_MC-ResNet-RGB-HSV.keras",
+                "training_history": {
+                    "accuracy": [
+                        0.9107432961463928,
+                        0.9871606230735779,
+                        0.9950885772705078,
+                        0.9935416579246521,
+                        0.9963647723197937,
+                        0.9982984066009521
+                    ],
+                    "eer": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "loss": [
+                        1.8925001621246338,
+                        0.8198978304862976,
+                        0.45692500472068787,
+                        0.28960558772087097,
+                        0.18625837564468384,
+                        0.12225117534399033
+                    ],
+                    "val_accuracy": [
+                        0.9572535753250122,
+                        0.9944296479225159,
+                        0.9370307326316833,
+                        0.9841365814208984,
+                        0.9782029390335083,
+                        0.9964882731437683
+                    ],
+                    "val_eer": [
+                        0.0,
+                        0.0012141816415735794,
+                        0.04103933948518698,
+                        0.004371053909664886,
+                        0.011898980087421079,
+                        0.0029140359397765905
+                    ],
+                    "val_loss": [
+                        1.1476339101791382,
+                        0.5840505361557007,
+                        0.5948408246040344,
+                        0.24680306017398834,
+                        0.18792155385017395,
+                        0.10872460901737213
+                    ]
+                },
+                "epochs": 6,
+                "final_test_metrics": {
+                    "loss": 0.17048028111457825,
+                    "accuracy": 0.9491581916809082,
+                    "eer": 0.07359376882001044
+                }
+            }
+        },
+        {
+            "config": {
+                "filtering_params": {
+                    "data_map_path": "/kaggle/working/face-anti-spoofing-pipline/data_maps/CASIA_FASD_V3_30percent_BMSelection.json",
+                    "keep_ratio": 0.3,
+                    "filter_function": "brightness_contrast_movement_based_selecting"
+                },
+                "data_params": {
+                    "dataset_path": "/kaggle/input/datasets/maameri/visual-computing-thesis-data/DATA",
+                    "input_size": [
+                        224,
+                        224,
+                        3
+                    ],
+                    "pixel_range": [
+                        0.0,
+                        1.0
+                    ],
+                    "batch_size": 32,
+                    "validation_dataset_baleance": 1
+                },
+                "augmentation_params": {
+                    "rotation_range": 0.1,
+                    "horizontal_flip": 1,
+                    "brightness_range": [
+                        0.9,
+                        1.1
+                    ],
+                    "zoom_range": 0.1
+                },
+                "model_params": {
+                    "model_init_function": "mc_resnet_rgb_hsv",
+                    "architecture": "MC-ResNet-RGB-HSV",
+                    "parameters_count": 392504,
+                    "note": null
+                },
+                "training_params": {
+                    "early_stopping_patience": 5,
+                    "learning_rate": 0.0001,
+                    "initial_epochs": 30
+                }
+            },
+            "logs": {
+                "best_model_name": "experiment_005_20260414-205251_2_model_MC-ResNet-RGB-HSV.keras",
+                "training_history": {
+                    "accuracy": [
+                        0.8133454918861389,
+                        0.9556451439857483,
+                        0.9847164154052734,
+                        0.9910899996757507,
+                        0.9955775141716003,
+                        0.9960327744483948,
+                        0.9951222538948059,
+                        0.9944068789482117,
+                        0.9973335266113281,
+                        0.9975936412811279,
+                        0.9973335266113281,
+                        0.9960978031158447,
+                        0.9962929487228394,
+                        0.9977236986160278
+                    ],
+                    "eer": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "loss": [
+                        2.3473379611968994,
+                        1.2888305187225342,
+                        0.8485636711120605,
+                        0.6204018592834473,
+                        0.4652712643146515,
+                        0.35876479744911194,
+                        0.2791161835193634,
+                        0.2225130945444107,
+                        0.17404727637767792,
+                        0.13917012512683868,
+                        0.11479292064905167,
+                        0.09841592609882355,
+                        0.08351630717515945,
+                        0.06876574456691742
+                    ],
+                    "val_accuracy": [
+                        0.9339314699172974,
+                        0.9877650737762451,
+                        0.9967373609542847,
+                        0.9883768558502197,
+                        0.9963295459747314,
+                        0.9965334534645081,
+                        0.9963295459747314,
+                        0.9928629398345947,
+                        0.9973490834236145,
+                        0.9993882775306702,
+                        0.9995921850204468,
+                        0.9981647729873657,
+                        0.9961256384849548,
+                        0.9989804029464722
+                    ],
+                    "val_eer": [
+                        0.043866774979691305,
+                        0.015434606011372868,
+                        0.002437043054427295,
+                        0.004467912266450041,
+                        0.0012185215272136475,
+                        0.0036555645816409425,
+                        0.004467912266450041,
+                        0.0020308692120227455,
+                        0.0,
+                        0.0012185215272136475,
+                        0.00040617384240454913,
+                        0.0008123476848090983,
+                        0.00040617384240454913,
+                        0.0016246953696181965
+                    ],
+                    "val_loss": [
+                        1.7663639783859253,
+                        1.0031460523605347,
+                        0.6911877989768982,
+                        0.5486108660697937,
+                        0.40198439359664917,
+                        0.31328558921813965,
+                        0.24676600098609924,
+                        0.2045518010854721,
+                        0.1525897979736328,
+                        0.12010394781827927,
+                        0.09626039117574692,
+                        0.08292263001203537,
+                        0.07707185298204422,
+                        0.05949736014008522
+                    ]
+                },
+                "epochs": 14,
+                "final_test_metrics": {
+                    "loss": 0.207233265042305,
+                    "accuracy": 0.9596270322799683,
+                    "eer": 0.041545632642032024
+                }
+            }
+        },
+        {
+            "config": {
+                "filtering_params": {
+                    "data_map_path": "/kaggle/working/face-anti-spoofing-pipline/data_maps/CASIA_FASD_V3_70percent_BMSelection.json",
+                    "keep_ratio": 0.7,
+                    "filter_function": "brightness_contrast_movement_based_selecting"
+                },
+                "data_params": {
+                    "dataset_path": "/kaggle/input/datasets/maameri/visual-computing-thesis-data/DATA",
+                    "input_size": [
+                        224,
+                        224,
+                        3
+                    ],
+                    "pixel_range": [
+                        0.0,
+                        1.0
+                    ],
+                    "batch_size": 32,
+                    "validation_dataset_baleance": 1
+                },
+                "augmentation_params": {
+                    "rotation_range": 0.1,
+                    "horizontal_flip": 1,
+                    "brightness_range": [
+                        0.9,
+                        1.1
+                    ],
+                    "zoom_range": 0.1
+                },
+                "model_params": {
+                    "model_init_function": "mc_resnet_rgb_hsv",
+                    "architecture": "MC-ResNet-RGB-HSV",
+                    "parameters_count": 392504,
+                    "note": null
+                },
+                "training_params": {
+                    "early_stopping_patience": 5,
+                    "learning_rate": 0.0001,
+                    "initial_epochs": 30
+                }
+            },
+            "logs": {
+                "best_model_name": "experiment_005_20260414-205251_3_model_MC-ResNet-RGB-HSV.keras",
+                "training_history": {
+                    "accuracy": [
+                        0.9048320651054382,
+                        0.9898242950439453,
+                        0.9961354732513428,
+                        0.9951901435852051,
+                        0.9967193007469177,
+                        0.9969417452812195,
+                        0.9977201819419861
+                    ],
+                    "eer": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "loss": [
+                        1.7510384321212769,
+                        0.6830419898033142,
+                        0.358247846364975,
+                        0.20186957716941833,
+                        0.12048174440860748,
+                        0.08049679547548294,
+                        0.05646071210503578
+                    ],
+                    "val_accuracy": [
+                        0.9899007678031921,
+                        0.9993905425071716,
+                        0.9936444163322449,
+                        0.9966045618057251,
+                        0.9665679931640625,
+                        0.9721400141716003,
+                        0.9840675592422485
+                    ],
+                    "val_eer": [
+                        0.0026348146847005095,
+                        0.0008782715615668365,
+                        0.0033374319339539785,
+                        0.0021078517477604074,
+                        0.011241875988055507,
+                        0.007553135429474793,
+                        0.005620937994027754
+                    ],
+                    "val_loss": [
+                        0.9410064816474915,
+                        0.4662891626358032,
+                        0.2658793330192566,
+                        0.15023916959762573,
+                        0.22201913595199585,
+                        0.16276447474956512,
+                        0.07807807624340057
+                    ]
+                },
+                "epochs": 7,
+                "final_test_metrics": {
+                    "loss": 0.13969212770462036,
+                    "accuracy": 0.9629662036895752,
+                    "eer": 0.039786343294355424
+                }
+            }
+        }
+    ]
+}
