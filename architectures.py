@@ -102,7 +102,6 @@ def mc_resnet_rgb_hsv(input_shape=(224, 224, 3)):
     return models.Model(inputs=input_rgb, outputs=output, name = "MC-ResNet-RGB-HSV")
 
 
-
 def build_mc_cdcn_model(input_shape=(224, 224, 3), theta=0.7):
     """
     Builds the MC-CDCN model for Intelligent Facial Spoofing Detection.
@@ -173,3 +172,117 @@ def build_mc_cdcn_model(input_shape=(224, 224, 3), theta=0.7):
     output = layers.Dense(1, activation='sigmoid', name="classifier")(x)
 
     return models.Model(inputs=input_rgb, outputs=output, name="MC_CDCN")
+
+
+def hs_ConvNeXtTiny(input_shape=(224, 224, 3)):
+    img_input = layers.Input(shape=input_shape)
+    
+    # Preprocessing: RGB -> HSV -> Extract H & S
+    hsv = layers.Lambda(lambda x: tf.image.rgb_to_hsv(x))(img_input)
+    hs = layers.Lambda(lambda x: x[:, :, :, 0:2])(hsv)
+    
+    # Expand 2 channels to 3 for ConvNeXt compatibility
+    x = layers.Conv2D(3, (1, 1), padding='same')(hs)
+    
+    base_model = tf.keras.applications.ConvNeXtTiny(
+        include_top=False, 
+        weights=None, 
+        input_tensor=x
+    )
+    
+    # Global Head
+    x = layers.GlobalAveragePooling2D()(base_model.output)
+    output = layers.Dense(1, activation='sigmoid', dtype='float32')(x)
+    
+    return models.Model(img_input, output, name="hs_ConvNeXtTiny")
+
+
+def hsv_ConvNeXtTiny(input_shape=(224, 224, 3)):
+    img_input = layers.Input(shape=input_shape)
+    
+    # Preprocessing: RGB -> HSV
+    hsv = layers.Lambda(lambda x: tf.image.rgb_to_hsv(x))(img_input)
+    
+    base_model = tf.keras.applications.ConvNeXtTiny(
+        include_top=False, 
+        weights=None, 
+        input_tensor=hsv
+    )
+    
+    x = layers.GlobalAveragePooling2D()(base_model.output)
+    output = layers.Dense(1, activation='sigmoid', dtype='float32')(x)
+    
+    return models.Model(img_input, output, name="hsv_ConvNeXtTiny")
+
+
+
+def get_lbp_gpu(image_channel):
+    # Define constants as Tensors immediately
+    a = tf.constant(0.20710678, dtype=tf.float32) 
+    b = tf.constant(0.5, dtype=tf.float32)        
+    c = tf.constant(0.91421354, dtype=tf.float32) 
+
+    # Create the kernels using tf.stack instead of np.array
+    # This keeps everything inside the TF ecosystem
+    k0 = [[0, 0, 0], [0, -1, 1], [0, 0, 0]]
+    k1 = [[0, a, b], [0, -c, a], [0, 0, 0]]
+    k2 = [[0, 1, 0], [0, -1, 0], [0, 0, 0]]
+    k3 = [[b, a, 0], [a, -c, 0], [0, 0, 0]]
+    k4 = [[0, 0, 0], [1, -1, 0], [0, 0, 0]]
+    k5 = [[0, 0, 0], [a, -c, 0], [b, a, 0]]
+    k6 = [[0, 0, 0], [0, -1, 0], [0, 1, 0]]
+    k7 = [[0, 0, 0], [0, -c, a], [0, a, b]]
+
+    # Stack and reshape to [height, width, in_channels, out_channels]
+    kernels = tf.stack([k0, k1, k2, k3, k4, k5, k6, k7], axis=0)
+    kernels = tf.transpose(kernels, [1, 2, 0])
+    kernels = tf.reshape(kernels, (3, 3, 1, 8))
+
+    weights = tf.reshape(tf.constant([1, 2, 4, 8, 16, 32, 64, 128], dtype=tf.float32), (1, 1, 1, 8))
+
+    # Standard Conv2D logic
+    diff = tf.nn.conv2d(image_channel, kernels, strides=[1, 1, 1, 1], padding='SAME')
+    binary_bits = tf.cast(diff >= -1e-7, tf.float32)
+    
+    return tf.reduce_sum(binary_bits * weights, axis=-1, keepdims=True) / 255.0
+
+def HS_LBP_ConvNeXt(input_shape=(224, 224, 3)):
+    # 1. Input: Raw RGB
+    rgb_input = layers.Input(shape=input_shape, name="input_rgb")
+    
+    # 2. Preprocessing Stream (RGB -> HSV)
+    # Using 0-1 range for internal calculations
+    hsv = layers.Lambda(lambda x: tf.image.rgb_to_hsv(x), name="hsv_transform")(rgb_input)
+    
+    h = layers.Lambda(lambda x: x[:, :, :, 0:1], name="hue_channel")(hsv)
+    s = layers.Lambda(lambda x: x[:, :, :, 1:2], name="saturation_channel")(hsv)
+    v = layers.Lambda(lambda x: x[:, :, :, 2:3], name="value_channel")(hsv)
+    
+    # 3. Feature Engineering: Extract LBP from Value channel
+    lbp_v = layers.Lambda(get_lbp_gpu, name="lbp_texture_extraction")(v)
+    
+    # 4. Feature Fusion: Stack [H, S, LBP(V)] as a 3-channel input
+    # This allows us to use ImageNet-pretrained weights on the backbone
+    fused_input = layers.Concatenate(axis=-1, name="spectral_texture_fusion")([h, s, lbp_v])
+    
+    # 5. Backbone: ConvNeXt Tiny
+    base_model = tf.keras.applications.ConvNeXtTiny(
+        include_top=False,
+        weights=None,
+        input_tensor=fused_input
+    )
+    
+    # 6. Global Head (Optimized for Binary Classification)
+    x = base_model.output
+    x = layers.GlobalAveragePooling2D()(x)
+    x = layers.BatchNormalization()(x)
+    x = layers.Dense(512, activation='relu')(x)
+    x = layers.Dropout(0.5)(x) # Robustness against overfitting
+    
+    # Sigmoid Output: 0 = Spoof, 1 = Real
+    outputs = layers.Dense(1, activation='sigmoid', dtype='float32', name="classification")(x)
+    
+    model = models.Model(rgb_input, outputs, name="HS_LBP_ConvNeXt")
+    
+    return model
+
