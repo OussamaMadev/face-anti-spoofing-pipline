@@ -215,15 +215,15 @@ class DataLoaderPipeline:
             # For FAS, we usually stay within small angles
             img = tf.image.rot90(img, k=tf.random.uniform(shape=[], minval=0, maxval=1, dtype=tf.int32))
 
-        # 3. Brightness & Contrast
-        br_range = self.aug_params.get("brightness_range", [1.0, 1.0])
-        if br_range != [1.0, 1.0]:
-            delta = br_range[1] - 1.0
-            img = tf.image.random_brightness(img, max_delta=delta)
-        
-        # todo  : add contrast augmentation with a range in aug_params
-        ct_range = self.aug_params.get("contrast_range", [0.9, 1.1])
-        img = tf.image.random_contrast(img, lower=ct_range[0], upper=ct_range[1])
+        # # 3. Brightness & Contrast
+        br_range = self.aug_params.get("brightness_delta", 0)
+        if br_range != 0:
+            img = tf.image.random_brightness(img, max_delta=br_range)
+
+        # # todo  : add contrast augmentation with a range in aug_params
+        ct_range = self.aug_params.get("contrast_range", [1.0, 1.0])
+        if ct_range != [1.0, 1.0]:
+            img = tf.image.random_contrast(img, lower=ct_range[0], upper=ct_range[1])
 
         # 4. Zoom / Crop
         zoom = self.aug_params.get("zoom_range", 0)
