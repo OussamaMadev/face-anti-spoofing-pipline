@@ -295,8 +295,10 @@ class TrainingPipeline:
 
         # 4. EER Calculation (Sklearn is CPU-based)
         fpr, tpr, _ = roc_curve(y_true, y_scores)
-        frr = 1 - tpr
-        eer = fpr[np.nanargmin(np.absolute(fpr - frr))]
+        fnr = 1 - tpr
+        eer_1 = fpr[np.nanargmin(np.absolute((fnr - fpr)))]
+        eer_2 = fnr[np.nanargmin(np.absolute((fnr - fpr)))]
+        eer = (eer_1 + eer_2) / 2 
 
         return {
             "loss": float(final_loss),
