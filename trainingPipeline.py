@@ -228,9 +228,9 @@ class TrainingPipeline:
                 val_ds = None
                 callbacks = [
                     tf.keras.callbacks.ModelCheckpoint(model_path,
-                                                        monitor='accuracy', 
+                                                        monitor='loss', 
                                                         save_best_only=True, 
-                                                        mode='max',
+                                                        mode='min',
                                                         verbose=1)
                 ]
 
