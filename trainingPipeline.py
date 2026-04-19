@@ -368,4 +368,4 @@ class ValidationEERLogger(tf.keras.callbacks.Callback):
         logs["val_accuracy"] = float(self.acc_tracker.result().numpy())
         
         # Clean output for Kaggle/Terminal
-        print(f" - val_loss: {logs['val_loss']:.4f} - val_acc: {logs['val_accuracy']:.4f} - val_eer: {eer_val:.5f}")
+        # print(f" - val_loss: {logs['val_loss']:.4f} - val_acc: {logs['val_accuracy']:.4f} - val_eer: {eer_val:.5f}")
