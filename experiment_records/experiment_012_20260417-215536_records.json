@@ -1,0 +1,64 @@
+{
+    "metadata": {
+        "experiment_id": "experiment_012_20260417-215536",
+        "status": "running",
+        "notes": " grb and hsv with resnet blocks "
+    },
+    "records": [
+        {
+            "config": {
+                "filtering_params": {
+                    "data_map_path": "/content/face-anti-spoofing-pipline/data_maps/CASIA_FASD_V3_30percent_BMSelection.json",
+                    "keep_ratio": 0.3,
+                    "filter_function": "brightness_contrast_movement_based_selecting"
+                },
+                "data_params": {
+                    "dataset_path": "/content/CASIA/DATA",
+                    "input_size": [
+                        224,
+                        224,
+                        3
+                    ],
+                    "pixel_range": [
+                        0.0,
+                        1.0
+                    ],
+                    "batch_size": 32,
+                    "validation_subjects_number": 2,
+                    "get_random_subjects_for_validation": 1,
+                    "validation_dataset_baleance": 1
+                },
+                "augmentation_params": {
+                    "rotation_range": 0.15,
+                    "horizontal_flip": 1,
+                    "brightness_delta": 0.2,
+                    "contrast_range": [
+                        0.8,
+                        1.2
+                    ],
+                    "zoom_range": 0.15
+                },
+                "model_params": {
+                    "model_init_function": "mc_resnet_rgb_hsv",
+                    "architecture": "MC-ResNet-RGB-HSV",
+                    "parameters_count": 392504,
+                    "note": null
+                },
+                "training_params": {
+                    "early_stopping_patience": 8,
+                    "learning_rate": 0.0001,
+                    "initial_epochs": 35
+                }
+            },
+            "logs": {
+                "best_model_name": "experiment_012_20260417-215536_0_model_MC-ResNet-RGB-HSV.keras",
+                "final_test_metrics": {
+                    "loss": 0.1781424582004547,
+                    "accuracy": 0.9587500095367432,
+                    "eer": 0.04767776407727086
+                    
+                }
+            }
+        }
+    ]
+}

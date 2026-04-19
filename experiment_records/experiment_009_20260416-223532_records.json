@@ -1,0 +1,301 @@
+{
+    "metadata": {
+        "experiment_id": "experiment_009_20260416-223532",
+        "status": "running",
+        "notes": " mobilnet v3 larg vs vgg 16 vs resnet 50 v2 "
+    },
+    "records": [
+        {
+            "config": {
+                "filtering_params": {
+                    "data_map_path": "/content/face-anti-spoofing-pipline/data_maps/CASIA_FASD_V3_30percent_uniformSampling.json",
+                    "keep_ratio": 0.3,
+                    "filter_function": "uniform_sampling"
+                },
+                "data_params": {
+                    "dataset_path": "/content/CASIA/DATA",
+                    "input_size": [
+                        224,
+                        224,
+                        3
+                    ],
+                    "pixel_range": [
+                        0.0,
+                        1.0
+                    ],
+                    "batch_size": 32,
+                    "validation_subjects_number": 1,
+                    "get_random_subjects_for_validation": 1,
+                    "validation_dataset_baleance": 0
+                },
+                "augmentation_params": {
+                    "rotation_range": 0.15,
+                    "horizontal_flip": 1,
+                    "brightness_delta": 0.1,
+                    "contrast_range": [
+                        0.9,
+                        1.1
+                    ],
+                    "zoom_range": 0.1
+                },
+                "model_params": {
+                    "model_init_function": "mobilenet_v3",
+                    "architecture": "mobilenet_v3",
+                    "parameters_count": 3119489,
+                    "note": null
+                },
+                "training_params": {
+                    "early_stopping_patience": 5,
+                    "learning_rate": 0.0001,
+                    "initial_epochs": 25
+                }
+            },
+            "logs": {
+                "best_model_name": "experiment_009_20260416-223532_0_model_mobilenet_v3.keras",
+                "training_history": {
+                    "accuracy": [
+                        0.8919678926467896,
+                        0.9708594679832458,
+                        0.984046459197998,
+                        0.9883806705474854,
+                        0.9929454326629639,
+                        0.9931298494338989
+                    ],
+                    "eer": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "loss": [
+                        0.24682193994522095,
+                        0.08098455518484116,
+                        0.04607269912958145,
+                        0.032762546092271805,
+                        0.02073470503091812,
+                        0.019271740689873695
+                    ],
+                    "val_accuracy": [
+                        0.7759103775024414,
+                        0.7759103775024414,
+                        0.7759103775024414,
+                        0.7759103775024414,
+                        0.7759103775024414,
+                        0.7759103775024414
+                    ],
+                    "val_eer": [
+                        0.0,
+                        0.0,
+                        0.30324909747292417,
+                        0.5,
+                        0.3104693140794224,
+                        0.644404332129964
+                    ],
+                    "val_loss": [
+                        0.6358481645584106,
+                        0.550757646560669,
+                        0.5413625240325928,
+                        0.6178517937660217,
+                        0.8085903525352478,
+                        1.2324374914169312
+                    ]
+                },
+                "epochs": 6,
+                "final_test_metrics": {
+                    "loss": 0.6399283409118652,
+                    "accuracy": 0.7582703232765198,
+                    "eer": 0.0
+                }
+            }
+        },
+        {
+            "config": {
+                "filtering_params": {
+                    "data_map_path": "/content/face-anti-spoofing-pipline/data_maps/CASIA_FASD_V3_30percent_uniformSampling.json",
+                    "keep_ratio": 0.3,
+                    "filter_function": "uniform_sampling"
+                },
+                "data_params": {
+                    "dataset_path": "/content/CASIA/DATA",
+                    "input_size": [
+                        224,
+                        224,
+                        3
+                    ],
+                    "pixel_range": [
+                        0.0,
+                        1.0
+                    ],
+                    "batch_size": 32,
+                    "validation_subjects_number": 0,
+                    "get_random_subjects_for_validation": 0,
+                    "validation_dataset_baleance": 0
+                },
+                "augmentation_params": {
+                    "rotation_range": 0.15,
+                    "horizontal_flip": 1,
+                    "brightness_delta": 0.1,
+                    "contrast_range": [
+                        0.9,
+                        1.1
+                    ],
+                    "zoom_range": 0.1
+                },
+                "model_params": {
+                    "model_init_function": "vgg_16",
+                    "architecture": "vgg_16",
+                    "parameters_count": 14780481,
+                    "note": null
+                },
+                "training_params": {
+                    "early_stopping_patience": 5,
+                    "learning_rate": 0.0001,
+                    "initial_epochs": 25
+                }
+            },
+            "logs": {
+                "best_model_name": "experiment_009_20260416-223532_1_model_vgg_16.keras",
+                "training_history": {
+                    "accuracy": [
+                        0.6140112280845642,
+                        0.9251623153686523,
+                        0.9761361479759216,
+                        0.9824530482292175,
+                        0.9883751273155212,
+                        0.9924548268318176,
+                        0.9928935170173645,
+                        0.9914897084236145,
+                        0.9957887530326843,
+                        0.991840660572052,
+                        0.996841549873352,
+                        0.9928935170173645,
+                        0.995130717754364,
+                        0.9973679780960083,
+                        0.9972363710403442,
+                        0.9967976808547974,
+                        0.9952623248100281,
+                        0.9960519671440125,
+                        0.9982452988624573,
+                        0.9954378008842468,
+                        0.9976750016212463,
+                        0.9989472031593323,
+                        0.9978943467140198,
+                        0.9966660737991333,
+                        0.9983330368995667
+                    ],
+                    "eer": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "loss": [
+                        0.6074618101119995,
+                        0.1974971443414688,
+                        0.06770236790180206,
+                        0.05284213647246361,
+                        0.034147899597883224,
+                        0.02259744144976139,
+                        0.021734530106186867,
+                        0.027726976200938225,
+                        0.013368487358093262,
+                        0.022315513342618942,
+                        0.009662111289799213,
+                        0.026275470852851868,
+                        0.014020655304193497,
+                        0.008416165597736835,
+                        0.008821004070341587,
+                        0.012200426310300827,
+                        0.014874348416924477,
+                        0.01372172124683857,
+                        0.005852235481142998,
+                        0.015725160017609596,
+                        0.00859830528497696,
+                        0.0033774920739233494,
+                        0.006288914941251278,
+                        0.009595546871423721,
+                        0.005176593083888292
+                    ]
+                },
+                "epochs": 25,
+                "final_test_metrics": {
+                    "loss": 0.4305400252342224,
+                    "accuracy": 0.9553449153900146,
+                    "eer": 0.04374737095126495
+                }
+            }
+        },
+        {
+            "config": {
+                "filtering_params": {
+                    "data_map_path": "/content/face-anti-spoofing-pipline/data_maps/CASIA_FASD_V3_30percent_uniformSampling.json",
+                    "keep_ratio": 0.3,
+                    "filter_function": "uniform_sampling"
+                },
+                "data_params": {
+                    "dataset_path": "/content/CASIA/DATA",
+                    "input_size": [
+                        224,
+                        224,
+                        3
+                    ],
+                    "pixel_range": [
+                        0.0,
+                        1.0
+                    ],
+                    "batch_size": 32,
+                    "validation_subjects_number": 0,
+                    "get_random_subjects_for_validation": 0,
+                    "validation_dataset_baleance": 0
+                },
+                "augmentation_params": {
+                    "rotation_range": 0.15,
+                    "horizontal_flip": 1,
+                    "brightness_delta": 0.1,
+                    "contrast_range": [
+                        0.9,
+                        1.1
+                    ],
+                    "zoom_range": 0.1
+                },
+                "model_params": {
+                    "model_init_function": "resnet_50v2",
+                    "architecture": "resnet_50v2",
+                    "parameters_count": 23827201,
+                    "note": null
+                },
+                "training_params": {
+                    "early_stopping_patience": 5,
+                    "learning_rate": 0.0001,
+                    "initial_epochs": 25
+                }
+            },
+            "logs": {
+                "best_model_name": "experiment_009_20260416-223532_2_model_resnet_50v2.keras"
+            }
+        }
+    ]
+}

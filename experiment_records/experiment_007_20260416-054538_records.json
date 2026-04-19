@@ -1,0 +1,194 @@
+{
+    "metadata": {
+        "experiment_id": "experiment_007_20260416-054538",
+        "status": "running",
+        "notes": "  "
+    },
+    "records": [
+        {
+            "config": {
+                "data_params": {
+                    "dataset_path": "/kaggle/input/datasets/maameri/visual-computing-thesis-data/DATA",
+                    "input_size": [
+                        224,
+                        224,
+                        3
+                    ],
+                    "pixel_range": [
+                        0,
+                        1
+                    ],
+                    "batch_size": 32,
+                    "validation_subjects_number": 0,
+                    "get_random_subjects_for_validation": 0,
+                    "validation_dataset_baleance": 0
+                },
+                "filtering_params": {
+                    "data_map_path": "/kaggle/working/face-anti-spoofing-pipline/data_maps/CASIA_FASD_V3_50percent_uniformSampling.json",
+                    "keep_ratio": 0.5,
+                    "filter_function": "uniform_sampling"
+                },
+                "augmentation_params": {
+                    "rotation_range": 0.15,
+                    "horizontal_flip": 1,
+                    "brightness_delta": 0.1,
+                    "contrast_range": [
+                        0.9,
+                        1.1
+                    ],
+                    "zoom_range": 0.1
+                },
+                "model_params": {
+                    "model_init_function": "HS_LBP_ConvNeXt",
+                    "architecture": "HS_LBP_ConvNeXt",
+                    "parameters_count": 28217441
+                },
+                "training_params": {
+                    "early_stopping_patience": 5,
+                    "learning_rate": 0.00005,
+                    "initial_epochs": 25
+                }
+            },
+            "logs": {
+                "best_model_name": "experiment_007_20260416-054538_0_model_HS_LBP_ConvNeXt.keras",
+                "training_history": {
+                    "accuracy": [
+                        0.7576210498809814,
+                        0.8708816766738892,
+                        0.9269551038742065,
+                        0.9476491808891296,
+                        0.9565306305885315,
+                        0.9626861214637756,
+                        0.9676398038864136,
+                        0.967932939529419,
+                        0.9720951914787292,
+                        0.9744694828987122,
+                        0.9755539894104004,
+                        0.9776058197021484,
+                        0.9794524312019348,
+                        0.9791886210441589,
+                        0.9798628091812134,
+                        0.9810059666633606,
+                        0.9822956919670105,
+                        0.9824715852737427,
+                        0.9824129343032837,
+                        0.9839664697647095,
+                        0.9842009544372559,
+                        0.9851096272468567,
+                        0.9857544898986816,
+                        0.9845234155654907,
+                        0.987601101398468
+                    ],
+                    "eer": [
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0
+                    ],
+                    "loss": [
+                        0.46672043204307556,
+                        0.29217758774757385,
+                        0.18455533683300018,
+                        0.1385577768087387,
+                        0.11820078641176224,
+                        0.10130210220813751,
+                        0.08962811529636383,
+                        0.08725687116384506,
+                        0.07520975917577744,
+                        0.07297279685735703,
+                        0.06869535893201828,
+                        0.06206710636615753,
+                        0.06020518019795418,
+                        0.05861617997288704,
+                        0.05761123448610306,
+                        0.05313883721828461,
+                        0.05166357383131981,
+                        0.050228092819452286,
+                        0.0483756922185421,
+                        0.04427172243595123,
+                        0.044602345675230026,
+                        0.04205602779984474,
+                        0.04135225713253021,
+                        0.04394630342721939,
+                        0.03634435683488846
+                    ]
+                },
+                "epochs": 25,
+                "final_test_metrics": {
+                    "loss": 15.960304260253906,
+                    "accuracy": 0.758273184299469,
+                    "eer": 0.26711366282571164
+                }
+            }
+        },
+        {
+            "config": {
+                "data_params": {
+                    "dataset_path": "/kaggle/input/datasets/maameri/visual-computing-thesis-data/DATA",
+                    "input_size": [
+                        224,
+                        224,
+                        3
+                    ],
+                    "pixel_range": [
+                        0,
+                        1
+                    ],
+                    "batch_size": 32,
+                    "validation_subjects_number": 0,
+                    "get_random_subjects_for_validation": 0,
+                    "validation_dataset_baleance": 0
+                },
+                "filtering_params": {
+                    "data_map_path": "/kaggle/working/face-anti-spoofing-pipline/data_maps/CASIA_FASD_V3_50percent_uniformSampling.json",
+                    "keep_ratio": 0.5,
+                    "filter_function": "uniform_sampling"
+                },
+                "augmentation_params": {
+                    "rotation_range": 0.15,
+                    "horizontal_flip": 1,
+                    "brightness_delta": 0.1,
+                    "contrast_range": [
+                        0.9,
+                        1.1
+                    ],
+                    "zoom_range": 0.1
+                },
+                "model_params": {
+                    "model_init_function": "hsv_ConvNeXtTiny",
+                    "architecture": "hsv_ConvNeXtTiny",
+                    "parameters_count": 27820897
+                },
+                "training_params": {
+                    "early_stopping_patience": 5,
+                    "learning_rate": 0.00005,
+                    "initial_epochs": 25
+                }
+            },
+            "logs": {
+                "best_model_name": "experiment_007_20260416-054538_1_model_hsv_ConvNeXtTiny.keras"
+            }
+        }
+    ]
+}
