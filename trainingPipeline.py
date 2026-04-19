@@ -57,6 +57,9 @@ class TrainingPipeline:
 
         self._fil_filtering_params()  # Pre-process filtering parameters for logging
 
+        self.loss_tracker = tf.keras.metrics.Mean()
+        self.acc_tracker = tf.keras.metrics.BinaryAccuracy()
+
     def val_configs(self):
         """Validates the provided configurations for completeness and correctness."""
         required_keys = ["data_params", "filtering_params", "model_params", "training_params"]
@@ -138,7 +141,7 @@ class TrainingPipeline:
        
         # 4. Compile
         def eer(y_true, y_pred):
-            return 0.0
+            return None  # Placeholder, actual EER is computed in the callback and logs
         
         model.compile(
             optimizer=optimizer,
@@ -260,15 +263,15 @@ class TrainingPipeline:
         # 1. Execute the entire loop on GPU in one shot
         # This is where the CPU 'hands over' control to the GPU
         # Reset trackers before the validation pass
-        loss_tracker = tf.keras.metrics.Mean()
-        acc_tracker = tf.keras.metrics.BinaryAccuracy()
+        self.loss_tracker.reset_state()
+        self.acc_tracker.reset_state()
         
         # Run the engine
         y_true_gpu, y_pred_gpu = run_full_gpu_pass(
-            self.val_ds, 
-            self.model, 
-            loss_tracker, 
-            acc_tracker
+            ds, 
+            model, 
+            self.loss_tracker, 
+            self.acc_tracker
         )
 
         # 2. Single Sync: Bring the final results to RAM
@@ -279,22 +282,32 @@ class TrainingPipeline:
         eer = compute_eer(y_true, y_scores)
 
         return {
-            "loss": float(loss_tracker.result().numpy()),
-            "accuracy": float(acc_tracker.result().numpy()),
+            "loss": float(self.loss_tracker.result().numpy()),
+            "accuracy": float(self.acc_tracker.result().numpy()),
             "eer": float(eer)
         }
     
 
 def compute_eer(y_true, y_scores):
-    fpr, tpr, _ = roc_curve(y_true, y_scores)
-    eer = brentq(lambda x : 1. - x - interp1d(fpr, tpr)(x), 0., 1.)
-    return eer
-
+    """Calculates EER with safety fallback."""
+    try:
+        # Check if we have at least one sample of each class
+        if len(np.unique(y_true)) < 2:
+            return 0.5
+            
+        fpr, tpr, _ = roc_curve(y_true, y_scores)
+        if len(fpr) < 2:
+            return 0.5
+            
+        eer = brentq(lambda x : 1. - x - interp1d(fpr, tpr)(x), 0., 1.)
+        return eer
+    except Exception:
+        return 0.5
 
 @tf.function
 def run_full_gpu_pass(ds, model, loss_tracker, acc_tracker):
     """
-    Compiled GPU engine. All heavy tensor math happens here.
+    Optimized GPU Engine. Prefetches data and runs inference in VRAM.
     """
     y_true_array = tf.TensorArray(tf.float32, size=0, dynamic_size=True)
     y_pred_array = tf.TensorArray(tf.float32, size=0, dynamic_size=True)
@@ -303,11 +316,11 @@ def run_full_gpu_pass(ds, model, loss_tracker, acc_tracker):
     for images, labels in ds:
         preds = model(images, training=False)
         
-        # In-place GPU updates
+        # Update metrics directly on GPU
         loss_tracker.update_state(model.loss(labels, preds))
         acc_tracker.update_state(labels, preds)
         
-        # Store results in VRAM
+        # Store results
         y_true_array = y_true_array.write(idx, tf.cast(tf.reshape(labels, [-1]), tf.float32))
         y_pred_array = y_pred_array.write(idx, tf.reshape(preds, [-1]))
         idx += 1
@@ -319,34 +332,28 @@ class ValidationEERLogger(tf.keras.callbacks.Callback):
     def __init__(self, val_ds):
         super(ValidationEERLogger, self).__init__()
         self.val_ds = val_ds
-        # Trackers created ONCE to satisfy tf.function requirements
+        # Trackers created once here to avoid variable creation error
         self.loss_tracker = tf.keras.metrics.Mean()
         self.acc_tracker = tf.keras.metrics.BinaryAccuracy()
 
     def on_epoch_end(self, epoch, logs=None):
         logs = logs or {}
-        
-        # Reset to avoid leaking metrics from previous epochs
         self.loss_tracker.reset_state()
         self.acc_tracker.reset_state()
         
-        # 1. GPU Processing
+        # Execute high-speed pass
         y_true_gpu, y_pred_gpu = run_full_gpu_pass(
             self.val_ds, self.model, self.loss_tracker, self.acc_tracker
         )
 
-        # 2. CPU Sync (Move data to RAM only now)
         y_true = y_true_gpu.numpy()
         y_scores = y_pred_gpu.numpy()
+        eer_val = compute_eer(y_true, y_scores)
 
-        # 3. CPU Math
-        eer = compute_eer(y_true, y_scores)
-
-        # 4. Feed Keras logs
-        logs["val_eer"] = float(eer)
+        # Update Keras logs so EarlyStopping/Checkpoint can see them
+        logs["val_eer"] = float(eer_val)
         logs["val_loss"] = float(self.loss_tracker.result().numpy())
         logs["val_accuracy"] = float(self.acc_tracker.result().numpy())
-
-        # Clean print for the console
-        print(f"\nEpoch {epoch+1} - val_loss: {logs['val_loss']:.4f} - val_acc: {logs['val_accuracy']:.4f} - val_eer: {eer:.5f}")
-
+        
+        # Clean output for Kaggle/Terminal
+        print(f" - val_loss: {logs['val_loss']:.4f} - val_acc: {logs['val_accuracy']:.4f} - val_eer: {eer_val:.5f}")
