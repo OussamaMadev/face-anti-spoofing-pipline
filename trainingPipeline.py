@@ -210,7 +210,7 @@ class TrainingPipeline:
             if validation_subjects_num :  # Only build validation dataset if there are validation subjects
                 val_ds = dlp.build_pipeline(val_subs, balanced=is_val_ds_balanced, augment=False, shuffle=False)
                 callbacks = [
-                    EERCallback(val_ds),  # Custom callback for single-pass EER evaluation
+                    ValidationEERLogger(val_ds),  # Custom callback for evaluation
                     tf.keras.callbacks.EarlyStopping(monitor="val_eer", 
                                                     patience=cfg["training_params"]["early_stopping_patience"], 
                                                     mode="min", 
@@ -236,14 +236,14 @@ class TrainingPipeline:
 
             history = model.fit(
                 train_ds,
-                validation_data=val_ds,
+                # validation_data=val_ds,
                 epochs=cfg["training_params"]["initial_epochs"],
                 verbose=2,
                 callbacks=callbacks
             )
             
             test_ds = dlp.build_pipeline(test_subs, balanced=False, augment=False, shuffle=False)           
-            final_test_metrics = self.compute_single_pass_metrics(test_ds, model)
+            final_test_metrics = self.compute_metrics(test_ds, model)
             print(f"Final Test Metrics for Sub-Experiment {i+1}: {final_test_metrics}")
             
             # Update master record with training history and final test metrics
@@ -256,82 +256,91 @@ class TrainingPipeline:
         print(f"\nExperiment Suite '{self.experiment_id}' completed. Records saved to '{self.record_file}'.")
 
 
-    def compute_single_pass_metrics(self, ds, model):
+    def compute_metrics(self, ds, model):
+        # 1. Execute the entire loop on GPU in one shot
+        # This is where the CPU 'hands over' control to the GPU
+        loss_gpu, acc_gpu, y_true_gpu, y_pred_gpu = run_full_gpu_pass(ds, model)
 
-        """
-        Computes Loss, Accuracy, and EER in exactly one pass over the data.
-        """
-        # Use TF's built-in metrics for speed (stays on GPU)
-        loss_tracker = tf.keras.metrics.Mean()
-        acc_tracker = tf.keras.metrics.BinaryAccuracy()
-
-        y_true_list = []
-        y_pred_list = []
-
-        # Get the loss function from the model (e.g., BinaryCrossentropy)
-        loss_fn = model.loss
-
-        # SINGLE PASS: Inference + Loss + Accuracy + Label Extraction
-        for images, labels in ds:
-            # 1. Forward Pass
-            preds = model(images, training=False)
-
-            # 2. Update Loss and Acc (Vectorized on GPU)
-            batch_loss = loss_fn(labels, preds)
-            loss_tracker.update_state(batch_loss)
-            acc_tracker.update_state(labels, preds)
-
-            # 3. Store for EER (Move to CPU/RAM)
-            y_true_list.append(labels.numpy())
-            y_pred_list.append(preds.numpy())
-
-        # Finalize Loss and Acc
-        final_loss = loss_tracker.result().numpy()
-        final_acc = acc_tracker.result().numpy()
-
-        # Flatten the results for EER
-        y_true = np.concatenate(y_true_list).ravel()
-        y_scores = np.concatenate(y_pred_list).ravel()
-
-        # 4. EER Calculation (Sklearn is CPU-based)
-        fpr, tpr, _ = roc_curve(y_true, y_scores)
-        eer = brentq(lambda x : 1. - x - interp1d(fpr, tpr)(x), 0., 1.)
+        # 2. Single Sync: Bring the final results to RAM
+        y_true = y_true_gpu.numpy()
+        y_scores = y_pred_gpu.numpy()
+        
+        # 3. Final EER calculation on CPU
+        eer = compute_eer(y_true, y_scores)
 
         return {
-            "loss": float(final_loss),
-            "accuracy": float(final_acc),
+            "loss": float(loss_gpu.numpy()),
+            "accuracy": float(acc_gpu.numpy()),
             "eer": float(eer)
         }
     
 
-class EERCallback(tf.keras.callbacks.Callback):
+def compute_eer(y_true, y_scores):
+    fpr, tpr, _ = roc_curve(y_true, y_scores)
+    eer = brentq(lambda x : 1. - x - interp1d(fpr, tpr)(x), 0., 1.)
+    return eer
+
+
+@tf.function
+def run_full_gpu_pass(ds, model):
+    """
+    The entire loop is compiled into a single GPU graph. 
+    The CPU triggers this once, and the GPU handles everything until the end.
+    """
+    
+    loss_tracker = tf.keras.metrics.Mean()
+    acc_tracker = tf.keras.metrics.BinaryAccuracy()
+    
+    # Using TensorArray to keep all predictions in VRAM
+    y_true_array = tf.TensorArray(tf.float32, size=0, dynamic_size=True)
+    y_pred_array = tf.TensorArray(tf.float32, size=0, dynamic_size=True)
+    
+    
+    idx = 0
+    for images, labels in ds:
+        # Forward pass
+        preds = model(images, training=False)
+        
+        # Update metrics on GPU
+        loss_tracker.update_state(model.loss(labels, preds))
+        acc_tracker.update_state(labels, preds)
+        
+        # Store in GPU memory
+        y_true_array = y_true_array.write(idx, tf.cast(tf.reshape(labels, [-1]), tf.float32))
+        y_pred_array = y_pred_array.write(idx, tf.reshape(preds, [-1]))
+        idx += 1
+        
+    # Concatenate all batches in VRAM and return to CPU
+    return (
+            y_true_array.concat(),
+            y_pred_array.concat(),
+            loss_tracker.result(),
+            acc_tracker.result()
+            )
+
+
+
+class ValidationEERLogger(tf.keras.callbacks.Callback):
     def __init__(self, val_ds):
-        super(EERCallback, self).__init__()
+        super(ValidationEERLogger, self).__init__()
         self.val_ds = val_ds
 
     def on_epoch_end(self, epoch, logs=None):
-        logs = logs or {}
-        
-        y_true_list = []
-        y_pred_list = []
+        # 1. Run the high-speed GPU engine
+        y_true_gpu, y_pred_gpu, val_loss_gpu, val_acc_gpu = run_full_gpu_pass(self.val_ds, self.model)
 
-        # Single pass to gather predictions and ground truth
-        for images, labels in self.val_ds:
-            preds = self.model(images, training=False)
-            
-            y_true_list.append(labels.numpy())
-            y_pred_list.append(preds.numpy())
+        # 2. Sync to CPU
+        y_true = y_true_gpu.numpy()
+        y_scores = y_pred_gpu.numpy()
 
-        # Flatten arrays
-        y_true = np.concatenate(y_true_list).ravel()
-        y_scores = np.concatenate(y_pred_list).ravel()
+        # 3. Calculate EER
+        eer = compute_eer(y_true, y_scores)
 
-        # EER Calculation logic
-        fpr, tpr, _ = roc_curve(y_true, y_scores)
-        frr = 1 - tpr
-        # Find the point where FPR is closest to FRR
-        eer = fpr[np.nanargmin(np.absolute(fpr - frr))]
-
-        # Feed back to Keras
+        # 4. Inject into logs (Crucial for EarlyStopping/Checkpoint)
         logs["val_eer"] = float(eer)
+        logs["val_loss"] = float(val_loss_gpu.numpy())
+        logs["val_accuracy"] = float(val_acc_gpu.numpy())
+
+        # Clean print for the console
+        print(f"\nEpoch {epoch+1} - val_loss: {logs['val_loss']:.4f} - val_acc: {logs['val_accuracy']:.4f} - val_eer: {eer:.5f}")
 
