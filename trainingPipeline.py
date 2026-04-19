@@ -141,7 +141,7 @@ class TrainingPipeline:
        
         # 4. Compile
         def eer(y_true, y_pred):
-            return None  # Placeholder, actual EER is computed in the callback and logs
+            return 0.0  # Placeholder, actual EER is computed in the callback and logs
         
         model.compile(
             optimizer=optimizer,
