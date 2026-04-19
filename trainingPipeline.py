@@ -238,6 +238,7 @@ class TrainingPipeline:
                 callbacks.append(tf.keras.callbacks.ReduceLROnPlateau(monitor=monitor_metric,
                                                     factor=reduce_on_plateau_factor,
                                                     patience=reduce_on_plateau_patience,
+                                                    mode='min',
                                                     verbose=1))
 
             
