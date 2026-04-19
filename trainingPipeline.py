@@ -209,33 +209,44 @@ class TrainingPipeline:
             is_val_ds_balanced = cfg["data_params"].get("validation_dataset_baleance", 0) == 1
             
             train_ds = dlp.build_pipeline(train_subs, balanced=True, augment=True)
+
             
-            if validation_subjects_num :  # Only build validation dataset if there are validation subjects
+            callbacks = []
+
+            # If validation subjects are specified, create validation dataset and add custom EER logging callback
+            if validation_subjects_num :
                 val_ds = dlp.build_pipeline(val_subs, balanced=is_val_ds_balanced, augment=False, shuffle=False)
-                callbacks = [
-                    ValidationEERLogger(val_ds),  # Custom callback for evaluation
-                    tf.keras.callbacks.EarlyStopping(monitor="val_eer", 
-                                                    patience=cfg["training_params"]["early_stopping_patience"], 
+                callbacks.append(ValidationEERLogger(val_ds))  # Custom callback for evaluation
+                monitor_metric = 'val_eer'
+            else:
+                # No validation dataset, so we monitor training loss for callbacks
+                monitor_metric = 'loss'
+                
+
+            # Early Stopping and ReduceLROnPlateau based on config
+            early_stopping_patience = cfg["training_params"].get("early_stopping_patience", None)
+            if early_stopping_patience is not None and early_stopping_patience >= 0:
+                callbacks.append(tf.keras.callbacks.EarlyStopping(monitor=monitor_metric, 
+                                                    patience=early_stopping_patience, 
                                                     mode="min", 
                                                     restore_best_weights=True,
-                                                    verbose=1), 
-                    
-                    tf.keras.callbacks.ModelCheckpoint(model_path, 
+                                                    verbose=1))    
+
+            reduce_on_plateau_patience = cfg["training_params"].get("ReduceLROnPlateau_patience", None)
+            reduce_on_plateau_factor = cfg["training_params"].get("ReduceLROnPlateau_factor", None)
+            if reduce_on_plateau_patience is not None and reduce_on_plateau_factor is not None:
+                callbacks.append(tf.keras.callbacks.ReduceLROnPlateau(monitor=monitor_metric,
+                                                    factor=reduce_on_plateau_factor,
+                                                    patience=reduce_on_plateau_patience,
+                                                    verbose=1))
+
+            
+            # Always save the best model based on the monitored metric
+            callbacks.append(tf.keras.callbacks.ModelCheckpoint(model_path, 
                                                     save_best_only=True, 
-                                                    monitor='val_eer',
+                                                    monitor=monitor_metric,
                                                     mode='min',
-                                                    verbose=1)
-                                                    
-                ]
-            else :
-                val_ds = None
-                callbacks = [
-                    tf.keras.callbacks.ModelCheckpoint(model_path,
-                                                        monitor='loss', 
-                                                        save_best_only=True, 
-                                                        mode='min',
-                                                        verbose=1)
-                ]
+                                                    verbose=1))
 
             history = model.fit(
                 train_ds,
