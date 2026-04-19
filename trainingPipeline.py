@@ -259,7 +259,17 @@ class TrainingPipeline:
     def compute_metrics(self, ds, model):
         # 1. Execute the entire loop on GPU in one shot
         # This is where the CPU 'hands over' control to the GPU
-        loss_gpu, acc_gpu, y_true_gpu, y_pred_gpu = run_full_gpu_pass(ds, model)
+        # Reset trackers before the validation pass
+        loss_tracker = tf.keras.metrics.Mean()
+        acc_tracker = tf.keras.metrics.BinaryAccuracy()
+        
+        # Run the engine
+        y_true_gpu, y_pred_gpu = run_full_gpu_pass(
+            self.val_ds, 
+            self.model, 
+            loss_tracker, 
+            acc_tracker
+        )
 
         # 2. Single Sync: Bring the final results to RAM
         y_true = y_true_gpu.numpy()
@@ -269,8 +279,8 @@ class TrainingPipeline:
         eer = compute_eer(y_true, y_scores)
 
         return {
-            "loss": float(loss_gpu.numpy()),
-            "accuracy": float(acc_gpu.numpy()),
+            "loss": float(loss_tracker.result().numpy()),
+            "accuracy": float(acc_tracker.result().numpy()),
             "eer": float(eer)
         }
     
@@ -282,64 +292,60 @@ def compute_eer(y_true, y_scores):
 
 
 @tf.function
-def run_full_gpu_pass(ds, model):
+def run_full_gpu_pass(ds, model, loss_tracker, acc_tracker):
     """
-    The entire loop is compiled into a single GPU graph. 
-    The CPU triggers this once, and the GPU handles everything until the end.
+    Compiled GPU engine. All heavy tensor math happens here.
     """
-    
-    loss_tracker = tf.keras.metrics.Mean()
-    acc_tracker = tf.keras.metrics.BinaryAccuracy()
-    
-    # Using TensorArray to keep all predictions in VRAM
     y_true_array = tf.TensorArray(tf.float32, size=0, dynamic_size=True)
     y_pred_array = tf.TensorArray(tf.float32, size=0, dynamic_size=True)
     
-    
     idx = 0
     for images, labels in ds:
-        # Forward pass
         preds = model(images, training=False)
         
-        # Update metrics on GPU
+        # In-place GPU updates
         loss_tracker.update_state(model.loss(labels, preds))
         acc_tracker.update_state(labels, preds)
         
-        # Store in GPU memory
+        # Store results in VRAM
         y_true_array = y_true_array.write(idx, tf.cast(tf.reshape(labels, [-1]), tf.float32))
         y_pred_array = y_pred_array.write(idx, tf.reshape(preds, [-1]))
         idx += 1
         
-    # Concatenate all batches in VRAM and return to CPU
-    return (
-            y_true_array.concat(),
-            y_pred_array.concat(),
-            loss_tracker.result(),
-            acc_tracker.result()
-            )
-
+    return y_true_array.concat(), y_pred_array.concat()
 
 
 class ValidationEERLogger(tf.keras.callbacks.Callback):
     def __init__(self, val_ds):
         super(ValidationEERLogger, self).__init__()
         self.val_ds = val_ds
+        # Trackers created ONCE to satisfy tf.function requirements
+        self.loss_tracker = tf.keras.metrics.Mean()
+        self.acc_tracker = tf.keras.metrics.BinaryAccuracy()
 
     def on_epoch_end(self, epoch, logs=None):
-        # 1. Run the high-speed GPU engine
-        y_true_gpu, y_pred_gpu, val_loss_gpu, val_acc_gpu = run_full_gpu_pass(self.val_ds, self.model)
+        logs = logs or {}
+        
+        # Reset to avoid leaking metrics from previous epochs
+        self.loss_tracker.reset_state()
+        self.acc_tracker.reset_state()
+        
+        # 1. GPU Processing
+        y_true_gpu, y_pred_gpu = run_full_gpu_pass(
+            self.val_ds, self.model, self.loss_tracker, self.acc_tracker
+        )
 
-        # 2. Sync to CPU
+        # 2. CPU Sync (Move data to RAM only now)
         y_true = y_true_gpu.numpy()
         y_scores = y_pred_gpu.numpy()
 
-        # 3. Calculate EER
+        # 3. CPU Math
         eer = compute_eer(y_true, y_scores)
 
-        # 4. Inject into logs (Crucial for EarlyStopping/Checkpoint)
+        # 4. Feed Keras logs
         logs["val_eer"] = float(eer)
-        logs["val_loss"] = float(val_loss_gpu.numpy())
-        logs["val_accuracy"] = float(val_acc_gpu.numpy())
+        logs["val_loss"] = float(self.loss_tracker.result().numpy())
+        logs["val_accuracy"] = float(self.acc_tracker.result().numpy())
 
         # Clean print for the console
         print(f"\nEpoch {epoch+1} - val_loss: {logs['val_loss']:.4f} - val_acc: {logs['val_accuracy']:.4f} - val_eer: {eer:.5f}")
