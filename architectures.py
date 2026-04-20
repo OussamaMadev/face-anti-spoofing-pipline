@@ -425,28 +425,36 @@ def build_resnet50v2_hsv_rgb(input_shape=(224, 224, 6)):
     model = tf.keras.models.Model(inputs=base_model.input, outputs=output, name = "resNet50V2_FASD_HSV_RGB")
     return model
 
-def build_resnet50v2_hsv_rgb_yCbCr(input_shape=(224, 224, 6)):
-
-    img_input = layers.Input(shape=input_shape)
+def build_resnet50v2_9channel(input_shape=(224, 224, 3)):
+    """
+    Expansion of ResNet50V2 to 9 channels: RGB (3) + HSV (3) + YCbCr (3).
+    Focuses on chromaticity and luminance gradients for anti-spoofing.
+    """
+    # 1. Define the original 3-channel RGB input
+    img_input = layers.Input(shape=input_shape, name="input_rgb")
     
-    
-    hsv = layers.Lambda(lambda x: tf.image.rgb_to_hsv(x))(img_input)
-    yCbCr = layers.Lambda(lambda x: tf.image.rgb_to_yCbCr(x))(img_input)
+    # 2. Color Space Transformations (Assuming input is normalized [0, 1])
+    hsv = layers.Lambda(lambda x: tf.image.rgb_to_hsv(x), name="hsv_stream")(img_input)
+    # Note: tf.image.rgb_to_yuv is the standard TF implementation for YCbCr-like logic
+    ycbcr = layers.Lambda(lambda x: tf.image.rgb_to_yuv(x), name="ycbcr_stream")(img_input)
 
+    # 3. Concatenate to 9 Channels
+    merged = layers.Concatenate(axis=-1, name="9_channel_fusion")([img_input, hsv, ycbcr])
 
-    rgb_hsv_ycrcb = layers.Concatenate(axis=-1)([img_input, hsv, yCbCr])
-
+    # 4. Initialize ResNet50V2 with the 9-channel tensor
+    # weights=None is mandatory as ImageNet weights only support 3 channels
     base_model = tf.keras.applications.ResNet50V2(
-        input_tensor=rgb_hsv_ycrcb,
         include_top=False,
-        weights=None 
-    )    
+        weights=None,
+        input_tensor=merged
+    )
+    
+    # 5. Global Head
     x = base_model.output
+    x = layers.GlobalAveragePooling2D()(x)
+    x = layers.Dropout(0.4)(x) # Increased dropout for better generalization
     
-    x = tf.keras.layers.GlobalAveragePooling2D()(x)
-    x = tf.keras.layers.Dropout(0.3)(x)
+    output = layers.Dense(1, activation='sigmoid', name="classifier")(x)
     
-    output = tf.keras.layers.Dense(1, activation='sigmoid')(x)
-    
-    model = tf.keras.models.Model(inputs=base_model.input, outputs=output, name = "resNet50V2_FASD_HSV_RGB_YCbCr")
+    model = models.Model(inputs=img_input, outputs=output, name="ResNet50V2_9Ch")
     return model
