@@ -424,3 +424,29 @@ def build_resnet50v2_hsv_rgb(input_shape=(224, 224, 6)):
     
     model = tf.keras.models.Model(inputs=base_model.input, outputs=output, name = "resNet50V2_FASD_HSV_RGB")
     return model
+
+def build_resnet50v2_hsv_rgb_yCbCr(input_shape=(224, 224, 6)):
+
+    img_input = layers.Input(shape=input_shape)
+    
+    
+    hsv = layers.Lambda(lambda x: tf.image.rgb_to_hsv(x))(img_input)
+    yCbCr = layers.Lambda(lambda x: tf.image.rgb_to_yCbCr(x))(img_input)
+
+
+    rgb_hsv_ycrcb = layers.Concatenate(axis=-1)([img_input, hsv, yCbCr])
+
+    base_model = tf.keras.applications.ResNet50V2(
+        input_tensor=rgb_hsv_ycrcb,
+        include_top=False,
+        weights=None 
+    )    
+    x = base_model.output
+    
+    x = tf.keras.layers.GlobalAveragePooling2D()(x)
+    x = tf.keras.layers.Dropout(0.3)(x)
+    
+    output = tf.keras.layers.Dense(1, activation='sigmoid')(x)
+    
+    model = tf.keras.models.Model(inputs=base_model.input, outputs=output, name = "resNet50V2_FASD_HSV_RGB_YCbCr")
+    return model
