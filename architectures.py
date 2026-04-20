@@ -494,7 +494,7 @@ def build_improved_resnet50v2_multichannel(input_shape=(224, 224, 3)):
     
     return models.Model(inputs=img_input, outputs=output)
 
-def build_improved_resnet50v2_multichannel(input_shape=(224, 224, 3)):
+def build_improved_resnet50v2_multichannel_v2(input_shape=(224, 224, 3)):
     img_input = layers.Input(shape=input_shape)
     
     # 1. Internal Multi-Chromatic Expansion (Ensure 0-1 range)
