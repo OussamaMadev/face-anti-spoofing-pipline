@@ -493,3 +493,37 @@ def build_improved_resnet50v2_multichannel(input_shape=(224, 224, 3)):
     output = layers.Dense(1, activation='sigmoid')(x)
     
     return models.Model(inputs=img_input, outputs=output)
+
+def build_improved_resnet50v2_multichannel(input_shape=(224, 224, 3)):
+    img_input = layers.Input(shape=input_shape)
+    
+    # 1. Internal Multi-Chromatic Expansion (Ensure 0-1 range)
+    hsv = layers.Lambda(lambda x: tf.image.rgb_to_hsv(x))(img_input)
+    combined_input = layers.Concatenate(axis=-1)([img_input, hsv])
+
+    # 2. Backbone with Intermediate Extractions
+    base = tf.keras.applications.ResNet50V2(
+        input_tensor=combined_input,
+        include_top=False,
+        weights=None 
+    )
+    
+    # Capture intermediate texture features (Stage 3 and 4)
+    feat_mid = base.get_layer("conv4_block6_out").output
+    feat_final = base.output
+    
+    # 3. Multi-Scale Pooling
+    p1 = layers.GlobalAveragePooling2D()(feat_mid)
+    p2 = layers.GlobalAveragePooling2D()(feat_final)
+    p3 = layers.GlobalMaxPooling2D()(feat_final) # Capture sharp glints/pixels
+    
+    merged = layers.Concatenate()([p1, p2, p3])
+    
+    # 4. Dense Head with Heavy Regularization
+    x = layers.Dense(512, activation='relu', kernel_regularizer='l2')(merged)
+    x = layers.BatchNormalization()(x)
+    x = layers.Dropout(0.5)(x) # Aggressive dropout to bridge the gap
+    
+    output = layers.Dense(1, activation='sigmoid')(x)
+    
+    return models.Model(inputs=img_input, outputs=output, name="Improved_ResNet50V2_MultiChannel_RGB_HSV")
