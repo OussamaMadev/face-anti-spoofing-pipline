@@ -286,3 +286,141 @@ def HS_LBP_ConvNeXt(input_shape=(224, 224, 3)):
     
     return model
 
+
+def build_gram_net(input_shape=(224, 224, 3)):
+# --- 1. Define the Custom Gram Layer ---
+    class GramMatrixLayer(layers.Layer):
+        def __init__(self, **kwargs):
+            super(GramMatrixLayer, self).__init__(**kwargs)
+
+        def call(self, x):
+            shape = tf.shape(x)
+            b, h, w, c = shape[0], shape[1], shape[2], shape[3]
+            features = tf.reshape(x, (b, h * w, c))
+            # (Batch, C, H*W) @ (Batch, H*W, C) -> (Batch, C, C)
+            gram = tf.matmul(features, features, transpose_a=True)
+            gram = gram / tf.cast(h * w, tf.float32)
+            return tf.reshape(gram, (b, c * c))
+
+    # --- 2. Create the Architecture ---
+    img_input = layers.Input(shape=input_shape, name="input_img")
+    
+    # Pre-trained Backbone
+    base = tf.keras.applications.MobileNetV3Small(
+        input_shape=input_shape, 
+        include_top=False, 
+        weights=None
+        # weights='imagenet'
+    )
+
+    # CRITICAL FIX: Pass your img_input through the base model to create a connected graph
+    # This creates a "new" version of the base model connected to your Input()
+    base_out = base(img_input) 
+
+    # Now we extract internal outputs from the base model
+    # To ensure they are connected to img_input, we use the Model API to get intermediate tensors
+    # Stage indices for MobileNetV3Small: 13 (low), 36 (mid), 142 (high)
+    extractor = models.Model(
+        inputs=base.input, 
+        outputs=[base.layers[13].output, base.layers[36].output, base.layers[142].output]
+    )
+    
+    # Link the extractor to our specific img_input
+    feat_low, feat_mid, feat_high = extractor(img_input)
+
+    # --- 3. Texture Extraction Logic ---
+    def process_stage(feat, filters, name):
+        # 1x1 Conv to reduce channels (keeps params low)
+        x = layers.Conv2D(filters, (1, 1), padding='same', use_bias=False)(feat)
+        x = layers.BatchNormalization()(x)
+        x = layers.Activation('relu')(x)
+        # Gram Texture
+        gram = GramMatrixLayer(name=f"gram_{name}")(x)
+        # Spatial Structure
+        gap = layers.GlobalAveragePooling2D(name=f"gap_{name}")(feat)
+        return gram, gap
+
+    g1, p1 = process_stage(feat_low, 32, "low")
+    g2, p2 = process_stage(feat_mid, 32, "mid")
+    g3, p3 = process_stage(feat_high, 32, "high")
+
+    # --- 4. Fusion and Head ---
+    fused = layers.Concatenate(name="global_fusion")([g1, p1, g2, p2, g3, p3])
+    
+    x = layers.Dense(512, activation='relu')(fused)
+    x = layers.BatchNormalization()(x)
+    x = layers.Dropout(0.4)(x)
+    output = layers.Dense(1, activation='sigmoid', name="decision")(x)
+
+    model = models.Model(inputs=img_input, outputs=output, name="GramNet_ResNet")
+    
+    return model
+
+
+def resnet_50v2(input_shape=(224, 224, 3)):
+    base_model = tf.keras.applications.ResNet50V2(
+        input_shape=input_shape,
+        include_top=False,
+        weights=None  # As per your Experiment 013 setup
+    )
+    
+    x = base_model.output
+    
+    # CRITICAL FIX: Flatten the spatial dimensions into a single vector
+    x = tf.keras.layers.GlobalAveragePooling2D()(x)
+    
+    # Optional: Add a Dropout layer to help with the 1.6% EER bottleneck
+    x = tf.keras.layers.Dropout(0.3)(x)
+    
+    output = tf.keras.layers.Dense(1, activation='sigmoid')(x)
+    
+    model = tf.keras.models.Model(inputs=base_model.input, outputs=output, name = "resNet50V2_FASD")
+    return model
+
+
+def build_resnet50v2_hsv(input_shape=(224, 224, 6)):
+
+    img_input = layers.Input(shape=input_shape)
+    
+    
+    hsv = layers.Lambda(lambda x: tf.image.rgb_to_hsv(x))(img_input)
+
+    base_model = tf.keras.applications.ResNet50V2(
+        input_tensor=hsv,
+        include_top=False,
+        weights=None 
+    )
+    
+    x = base_model.output
+    
+    x = tf.keras.layers.GlobalAveragePooling2D()(x)
+    x = tf.keras.layers.Dropout(0.3)(x)
+    
+    output = tf.keras.layers.Dense(1, activation='sigmoid')(x)
+    
+    model = tf.keras.models.Model(inputs=base_model.input, outputs=output, name = "resNet50V2_FASD")
+    return model
+
+def build_resnet50v2_hsv_rgb(input_shape=(224, 224, 6)):
+
+    img_input = layers.Input(shape=input_shape)
+    
+    
+    hsv = layers.Lambda(lambda x: tf.image.rgb_to_hsv(x))(img_input)
+
+    rgb_hsv = layers.Concatenate(axis=-1)([img_input, hsv])
+
+    base_model = tf.keras.applications.ResNet50V2(
+        input_tensor=rgb_hsv,
+        include_top=False,
+        weights=None 
+    )    
+    x = base_model.output
+    
+    x = tf.keras.layers.GlobalAveragePooling2D()(x)
+    x = tf.keras.layers.Dropout(0.3)(x)
+    
+    output = tf.keras.layers.Dense(1, activation='sigmoid')(x)
+    
+    model = tf.keras.models.Model(inputs=base_model.input, outputs=output, name = "resNet50V2_FASD")
+    return model
