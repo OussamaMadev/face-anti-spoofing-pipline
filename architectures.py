@@ -398,7 +398,7 @@ def build_resnet50v2_hsv(input_shape=(224, 224, 6)):
     
     output = tf.keras.layers.Dense(1, activation='sigmoid')(x)
     
-    model = tf.keras.models.Model(inputs=base_model.input, outputs=output, name = "resNet50V2_FASD")
+    model = tf.keras.models.Model(inputs=base_model.input, outputs=output, name = "resNet50V2_FASD_HSV")
     return model
 
 def build_resnet50v2_hsv_rgb(input_shape=(224, 224, 6)):
@@ -422,5 +422,5 @@ def build_resnet50v2_hsv_rgb(input_shape=(224, 224, 6)):
     
     output = tf.keras.layers.Dense(1, activation='sigmoid')(x)
     
-    model = tf.keras.models.Model(inputs=base_model.input, outputs=output, name = "resNet50V2_FASD")
+    model = tf.keras.models.Model(inputs=base_model.input, outputs=output, name = "resNet50V2_FASD_HSV_RGB")
     return model
