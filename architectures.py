@@ -548,3 +548,42 @@ def build_resnet50v2_hsv_rgb_yuv(input_shape=(224, 224, 3)):
     output = tf.keras.layers.Dense(1, activation='sigmoid')(x)
     model = tf.keras.models.Model(inputs=base_model.input, outputs=output, name = "resNet50V2_FASD_HSV_RGB_YUV")
     return model
+
+
+def build_resnet50v2_hsv_rgb_v2(input_shape=(224, 224, 3)):
+    img_input = layers.Input(shape=input_shape)
+    
+    # 1. 9-Channel Input Expansion (RGB + HSV + YUV)
+    # Ensure images are float32 [0, 1] to avoid EagerTensor uint8 errors
+    hsv = layers.Lambda(lambda x: tf.image.rgb_to_hsv(x))(img_input)
+    
+    combined = layers.Concatenate(axis=-1)([img_input, hsv])
+
+    # 2. ResNet Backbone
+    base_model = tf.keras.applications.ResNet50V2(
+        input_tensor=combined,
+        include_top=False,
+        weights=None 
+    )
+    res_out = base_model.output
+
+    # 3. Dimensional Alignment (Global Pooling)
+    # Get the global statistics of the 9-channel input (Mean color, mean YUV)
+    combined_pooled = layers.GlobalAveragePooling2D()(combined)
+    # Get the global deep features
+    res_pooled = layers.GlobalAveragePooling2D()(res_out)
+    
+    # 4. Concatenation
+    # Now both are vectors, so they can be merged
+    merged = layers.Concatenate()([combined_pooled, res_pooled])
+    
+    # 5. Dense Classifier Head
+    x = layers.Dense(512, activation='relu')(merged)
+    x = layers.BatchNormalization()(x)
+    x = layers.Dropout(0.5)(x)
+    
+    # Using 1 dense layer for output as per your intent
+    output = layers.Dense(1, activation='sigmoid', name="pad_output")(x)
+
+    model = models.Model(inputs=img_input, outputs=output, name="resNet50V2_FASD_HSV_RGB_V2")
+    return model
