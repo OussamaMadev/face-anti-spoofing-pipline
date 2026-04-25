@@ -401,7 +401,7 @@ def build_resnet50v2_hsv(input_shape=(224, 224, 6)):
     model = tf.keras.models.Model(inputs=base_model.input, outputs=output, name = "resNet50V2_FASD_HSV")
     return model
 
-def build_resnet50v2_hsv_rgb(input_shape=(224, 224, 6)):
+def build_resnet50v2_hsv_rgb(input_shape=(224, 224, 3)):
 
     img_input = layers.Input(shape=input_shape)
     
@@ -527,3 +527,24 @@ def build_improved_resnet50v2_multichannel_v2(input_shape=(224, 224, 3)):
     output = layers.Dense(1, activation='sigmoid')(x)
     
     return models.Model(inputs=img_input, outputs=output, name="Improved_ResNet50V2_MultiChannel_RGB_HSV")
+
+def build_resnet50v2_hsv_rgb_yuv(input_shape=(224, 224, 3)):
+
+    img_input = layers.Input(shape=input_shape)
+    hsv = layers.Lambda(lambda x: tf.image.rgb_to_hsv(x))(img_input)
+    yuv = layers.Lambda(lambda x: tf.image.rgb_to_yuv(x))(img_input)
+
+    combined = layers.Concatenate(axis=-1)([img_input, hsv, yuv])
+
+    base_model = tf.keras.applications.ResNet50V2(
+        input_tensor=combined,
+        include_top=False,
+        weights=None 
+    )    
+    x = base_model.output
+    x = tf.keras.layers.GlobalAveragePooling2D()(x)
+    x = tf.keras.layers.Dropout(0.5)(x)
+    
+    output = tf.keras.layers.Dense(1, activation='sigmoid')(x)
+    model = tf.keras.models.Model(inputs=base_model.input, outputs=output, name = "resNet50V2_FASD_HSV_RGB_YUV")
+    return model
