@@ -143,9 +143,11 @@ class TrainingPipeline:
         def eer(y_true, y_pred):
             return 0.0  # Placeholder, actual EER is computed in the callback and logs
         
+        
+        label_smoothing = m_params.get("label_smoothing", 0.0)
         model.compile(
             optimizer=optimizer,
-            loss= tf.keras.losses.BinaryCrossentropy(),
+            loss= tf.keras.losses.BinaryCrossentropy(label_smoothing=label_smoothing),
             metrics=['accuracy' , eer]
         )
         
