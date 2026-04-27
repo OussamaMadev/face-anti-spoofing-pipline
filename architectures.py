@@ -401,30 +401,6 @@ def build_resnet50v2_hsv(input_shape=(224, 224, 6)):
     model = tf.keras.models.Model(inputs=base_model.input, outputs=output, name = "resNet50V2_FASD_HSV")
     return model
 
-def build_resnet50v2_hsv_rgb(input_shape=(224, 224, 3)):
-
-    img_input = layers.Input(shape=input_shape)
-    
-    
-    hsv = layers.Lambda(lambda x: tf.image.rgb_to_hsv(x))(img_input)
-
-    rgb_hsv = layers.Concatenate(axis=-1)([img_input, hsv])
-
-    base_model = tf.keras.applications.ResNet50V2(
-        input_tensor=rgb_hsv,
-        include_top=False,
-        weights=None 
-    )    
-    x = base_model.output
-    
-    x = tf.keras.layers.GlobalAveragePooling2D()(x)
-    x = tf.keras.layers.Dropout(0.3)(x)
-    
-    output = tf.keras.layers.Dense(1, activation='sigmoid')(x)
-    
-    model = tf.keras.models.Model(inputs=base_model.input, outputs=output, name = "resNet50V2_FASD_HSV_RGB")
-    return model
-
 def build_resnet50v2_9channel(input_shape=(224, 224, 3)):
     """
     Expansion of ResNet50V2 to 9 channels: RGB (3) + HSV (3) + YCbCr (3).
@@ -586,4 +562,251 @@ def build_resnet50v2_hsv_rgb_v2(input_shape=(224, 224, 3)):
     output = layers.Dense(1, activation='sigmoid', name="pad_output")(x)
 
     model = models.Model(inputs=img_input, outputs=output, name="resNet50V2_FASD_HSV_RGB_V2")
+    return model
+
+def build_resnet50v2_hsv_rgb_v3(input_shape=(224, 224, 3)):
+    img_input = layers.Input(shape=input_shape)
+    
+    # 1. 9-Channel Input Expansion (RGB + HSV + YUV)
+    # Ensure images are float32 [0, 1] to avoid EagerTensor uint8 errors
+    hsv = layers.Lambda(lambda x: tf.image.rgb_to_hsv(x))(img_input)
+    
+    combined = layers.Concatenate(axis=-1)([img_input, hsv])
+
+    # 2. ResNet Backbone
+    base_model = tf.keras.applications.ResNet50V2(
+        input_tensor=combined,
+        include_top=False,
+        weights=None 
+    )
+    res_out = base_model.output
+
+    a = layers.conv3d()(res_out)
+    b = layers.conv3d()(combined)
+    
+
+    
+    combined_pooled = layers.GlobalAveragePooling2D()(combined)
+    # Get the global deep features
+    res_pooled = layers.GlobalAveragePooling2D()(res_out)
+    
+    # 4. Concatenation
+    # Now both are vectors, so they can be merged
+    merged = layers.Concatenate()([combined_pooled, res_pooled])
+    
+    # 5. Dense Classifier Head
+    x = layers.Dense(512, activation='relu')(merged)
+    x = layers.BatchNormalization()(x)
+    x = layers.Dropout(0.5)(x)
+    
+    # Using 1 dense layer for output as per your intent
+    output = layers.Dense(1, activation='sigmoid', name="pad_output")(x)
+
+    model = models.Model(inputs=img_input, outputs=output, name="resNet50V2_FASD_HSV_RGB_V3")
+    return model
+
+def build_resnet50v2_texture_fusion(input_shape=(224, 224, 3)):
+    img_input = layers.Input(shape=input_shape)
+    
+    # 1. Traditional Color Stream (RGB + HSV)
+    hsv = layers.Lambda(lambda x: tf.image.rgb_to_hsv(x))(img_input)
+    
+    # 2. Texture Preprocessing Stream
+    # Laplacian highlights high-frequency noise and edges
+    # Texture Preprocessing Stream
+    gray = layers.Lambda(lambda x: tf.image.rgb_to_grayscale(x))(img_input)
+    
+    laplacian_matrix = tf.constant([[0, 1, 0], [1, -4, 1], [0, 1, 0]], dtype=tf.float32)
+    # Change from [3,3] -> [3,3,1,1]
+    laplacian_kernel = laplacian_matrix[..., tf.newaxis, tf.newaxis] 
+    
+    laplacian = layers.Lambda(
+        lambda x: tf.nn.convolution(x, laplacian_kernel, padding='SAME')
+    )(gray)
+    
+    # 3. 8-Channel Fusion (RGB + HSV + Gray + Laplacian)
+    combined = layers.Concatenate(axis=-1)([img_input, hsv, gray, laplacian])
+
+    # 4. ResNet Backbone
+    base_model = tf.keras.applications.ResNet50V2(
+        input_tensor=combined,
+        include_top=False,
+        weights=None 
+    )
+    
+    # 5. Hybrid Global Pooling (The "EER Killer")
+    # GAP catches the general face structure
+    gap = layers.GlobalAveragePooling2D()(base_model.output)
+    # GMP catches the "smoking gun" artifacts (pixels, glare)
+    gmp = layers.GlobalMaxPooling2D()(base_model.output)
+    
+    # Merge the global insights
+    merged = layers.Concatenate()([gap, gmp])
+    
+    # 6. Regularized Head
+    x = layers.Dense(512, activation='relu')(merged)
+    x = layers.BatchNormalization()(x)
+    x = layers.Dropout(0.5)(x)
+    
+    output = layers.Dense(1, activation='sigmoid')(x)
+    
+    model = models.Model(inputs=img_input, outputs=output, name="ResNet_Texture_Fusion")
+    return model
+
+def build_resnet50v2_hsv_rgb_v4(input_shape=(224, 224, 3)):
+
+    img_input = layers.Input(shape=input_shape)
+    
+    
+    hsv = layers.Lambda(lambda x: tf.image.rgb_to_hsv(x))(img_input)
+
+    rgb_hsv = layers.Concatenate(axis=-1)([img_input, hsv])
+
+    base_model = tf.keras.applications.ResNet50V2(
+        input_tensor=rgb_hsv,
+        include_top=False,
+        weights=None 
+    )    
+    
+    mid_features = base_model.get_layer("conv3_block3_out").output
+
+    # Hybrid Pooling
+    avg_pool = layers.GlobalAveragePooling2D()(mid_features)
+    max_pool = layers.GlobalMaxPooling2D()(mid_features)
+    hybrid = layers.Concatenate()([avg_pool, max_pool])
+    x = layers.Dense(256, activation='relu')(hybrid)
+
+    x = tf.keras.layers.Dropout(0.3)(x)
+    
+    output = tf.keras.layers.Dense(1, activation='sigmoid')(x)
+    
+    model = tf.keras.models.Model(inputs=img_input, outputs=output, name = "resNet50V2_FASD_HSV_RGB_V4")
+    return model
+
+
+
+def build_resnet50_hsv_rgb(input_shape=(224, 224, 3)):
+
+    img_input = layers.Input(shape=input_shape)
+    
+    
+    hsv = layers.Lambda(lambda x: tf.image.rgb_to_hsv(x))(img_input)
+
+    rgb_hsv = layers.Concatenate(axis=-1)([img_input, hsv])
+
+    base_model = tf.keras.applications.ResNet50(
+        input_tensor=rgb_hsv,
+        include_top=False,
+        weights=None 
+    )    
+    x = base_model.output
+    
+    x = tf.keras.layers.GlobalAveragePooling2D()(x)
+    x = tf.keras.layers.Dropout(0.3)(x)
+    
+    output = tf.keras.layers.Dense(1, activation='sigmoid')(x)
+    
+    model = tf.keras.models.Model(inputs=img_input, outputs=output, name = "resNet50_FASD_HSV_RGB")
+    return model
+
+
+def build_resnet50v2_hsv_rgb_h_lbp(input_shape=(224, 224, 3)):
+
+    img_input = layers.Input(shape=input_shape)
+    
+    hsv = layers.Lambda(lambda x: tf.image.rgb_to_hsv(x))(img_input)
+
+    h = layers.Lambda(lambda x: x[:, :, :, 0:1], name="hue_channel")(hsv)
+    lpb_h = layers.Lambda(get_lbp_gpu, name="lbp_extraction")(h)
+
+    rgb_hsv = layers.Concatenate(axis=-1)([img_input, hsv, lpb_h])
+
+    base_model = tf.keras.applications.ResNet50V2(
+        input_tensor=rgb_hsv,
+        include_top=False,
+        weights=None 
+    )    
+    x = base_model.output
+    
+    x = tf.keras.layers.GlobalAveragePooling2D()(x)
+    x = tf.keras.layers.Dropout(0.3)(x)
+    
+    output = tf.keras.layers.Dense(1, activation='sigmoid')(x)
+    
+    model = tf.keras.models.Model(inputs=img_input, outputs=output, name = "resNet50V2_FASD_HSV_RGB_H_LBP")
+    return model
+
+def build_resnet50v2_hsv_rgb_grayscale_lbp(input_shape=(224, 224, 3)):
+
+    img_input = layers.Input(shape=input_shape)
+    
+    hsv = layers.Lambda(lambda x: tf.image.rgb_to_hsv(x))(img_input)
+
+    grayscale = layers.Lambda(lambda x: tf.image.rgb_to_grayscale(x), name="grayscale_conversion")(img_input)
+    lpb_grayscale = layers.Lambda(get_lbp_gpu, name="lbp_extraction")(grayscale)
+
+    rgb_hsv = layers.Concatenate(axis=-1)([img_input, hsv, lpb_grayscale])
+
+    base_model = tf.keras.applications.ResNet50V2(
+        input_tensor=rgb_hsv,
+        include_top=False,
+        weights=None 
+    )    
+    x = base_model.output
+    
+    x = tf.keras.layers.GlobalAveragePooling2D()(x)
+    x = tf.keras.layers.Dropout(0.3)(x)
+    
+    output = tf.keras.layers.Dense(1, activation='sigmoid')(x)
+    
+    model = tf.keras.models.Model(inputs=img_input, outputs=output, name = "resNet50V2_FASD_HSV_RGB_Grayscale_LBP")
+    return model
+
+
+def build_resnet50v2_hsv_rgb_drop5(input_shape=(224, 224, 3)):
+
+    img_input = layers.Input(shape=input_shape)
+    
+    
+    hsv = layers.Lambda(lambda x: tf.image.rgb_to_hsv(x))(img_input)
+
+    rgb_hsv = layers.Concatenate(axis=-1)([img_input, hsv])
+
+    base_model = tf.keras.applications.ResNet50V2(
+        input_tensor=rgb_hsv,
+        include_top=False,
+        weights=None 
+    )    
+    x = base_model.output
+    
+    x = tf.keras.layers.GlobalAveragePooling2D()(x)
+    x = tf.keras.layers.Dropout(0.5)(x)
+    
+    output = tf.keras.layers.Dense(1, activation='sigmoid')(x)
+    
+    model = tf.keras.models.Model(inputs=img_input, outputs=output, name = "resNet50V2_FASD_HSV_RGB_Drop5")
+    return model
+
+def build_resnet50v2_hsv_rgb(input_shape=(224, 224, 3)):
+
+    img_input = layers.Input(shape=input_shape)
+    
+    
+    hsv = layers.Lambda(lambda x: tf.image.rgb_to_hsv(x))(img_input)
+
+    rgb_hsv = layers.Concatenate(axis=-1)([img_input, hsv])
+
+    base_model = tf.keras.applications.ResNet50V2(
+        input_tensor=rgb_hsv,
+        include_top=False,
+        weights=None 
+    )    
+    x = base_model.output
+    
+    x = tf.keras.layers.GlobalAveragePooling2D()(x)
+    x = tf.keras.layers.Dropout(0.3)(x)
+    
+    output = tf.keras.layers.Dense(1, activation='sigmoid')(x)
+    
+    model = tf.keras.models.Model(inputs=img_input, outputs=output, name = "resNet50V2_FASD_HSV_RGB")
     return model
