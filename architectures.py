@@ -653,35 +653,6 @@ def build_resnet50v2_texture_fusion(input_shape=(224, 224, 3)):
     model = models.Model(inputs=img_input, outputs=output, name="ResNet_Texture_Fusion")
     return model
 
-def build_resnet50v2_rgb_v4(input_shape=(224, 224, 3)):
-
-    img_input = layers.Input(shape=input_shape)
-    
-    
-    # hsv = layers.Lambda(lambda x: tf.image.rgb_to_hsv(x))(img_input)
-
-    # rgb_hsv = layers.Concatenate(axis=-1)([img_input, hsv])
-
-    base_model = tf.keras.applications.ResNet50V2(
-        input_tensor=img_input,
-        include_top=False,
-        weights=None 
-    )    
-    
-    mid_features = base_model.get_layer("conv3_block3_out").output
-
-    # Hybrid Pooling
-    avg_pool = layers.GlobalAveragePooling2D()(mid_features)
-    max_pool = layers.GlobalMaxPooling2D()(mid_features)
-    hybrid = layers.Concatenate()([avg_pool, max_pool])
-    x = layers.Dense(256, activation='relu')(hybrid)
-
-    x = tf.keras.layers.Dropout(0.3)(x)
-    
-    output = tf.keras.layers.Dense(1, activation='sigmoid')(x)
-    
-    model = tf.keras.models.Model(inputs=img_input, outputs=output, name = "resNet50V2_FASD_RGB_V4")
-    return model
 
 def build_resnet50v2_hsv_rgb_v4(input_shape=(224, 224, 3)):
 
@@ -839,4 +810,34 @@ def build_resnet50v2_hsv_rgb(input_shape=(224, 224, 3)):
     output = tf.keras.layers.Dense(1, activation='sigmoid')(x)
     
     model = tf.keras.models.Model(inputs=img_input, outputs=output, name = "resNet50V2_FASD_HSV_RGB")
+    return model
+
+def build_resnet50v2_hsv_v4(input_shape=(224, 224, 3)):
+
+    img_input = layers.Input(shape=input_shape)
+    
+    
+    hsv = layers.Lambda(lambda x: tf.image.rgb_to_hsv(x))(img_input)
+
+    # rgb_hsv = layers.Concatenate(axis=-1)([img_input, hsv])
+
+    base_model = tf.keras.applications.ResNet50V2(
+        input_tensor=hsv,
+        include_top=False,
+        weights=None 
+    )    
+    
+    mid_features = base_model.get_layer("conv3_block3_out").output
+
+    # Hybrid Pooling
+    avg_pool = layers.GlobalAveragePooling2D()(mid_features)
+    max_pool = layers.GlobalMaxPooling2D()(mid_features)
+    hybrid = layers.Concatenate()([avg_pool, max_pool])
+    x = layers.Dense(256, activation='relu')(hybrid)
+
+    x = tf.keras.layers.Dropout(0.3)(x)
+    
+    output = tf.keras.layers.Dense(1, activation='sigmoid')(x)
+    
+    model = tf.keras.models.Model(inputs=img_input, outputs=output, name = "resNet50V2_FASD_HSV_V4")
     return model
