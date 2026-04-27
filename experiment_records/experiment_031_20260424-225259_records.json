@@ -1,0 +1,135 @@
+{
+    "metadata": {
+        "experiment_id": "experiment_031_20260424-225259",
+        "status": "completed",
+        "notes": " grb and hsv with resnet blocks "
+    },
+    "records": [
+        {
+            "config": {
+                "filtering_params": {
+                    "data_map_path": "/content/face-anti-spoofing-pipline/data_maps/CASIA_FASD_V3_50percent_uniformSampling.json",
+                    "keep_ratio": 0.5,
+                    "filter_function": "uniform_sampling"
+                },
+                "data_params": {
+                    "dataset_path": "/content/CASIA/DATA",
+                    "input_size": [
+                        224,
+                        224,
+                        3
+                    ],
+                    "pixel_range": [
+                        0.0,
+                        1.0
+                    ],
+                    "batch_size": 16,
+                    "validation_subjects_number": 0,
+                    "get_random_subjects_for_validation": 1,
+                    "validation_dataset_baleance": 0
+                },
+                "augmentation_params": {
+                    "rotation_range": 0.15,
+                    "horizontal_flip": 1,
+                    "brightness_range": [
+                        0.7,
+                        1.3
+                    ],
+                    "zoom_range": 0.15
+                },
+                "model_params": {
+                    "model_init_function": "build_resnet50v2_hsv_rgb_yuv_v2",
+                    "architecture": "resNet50V2_FASD_HSV_RGB_YUV_V2",
+                    "parameters_count": 24639873,
+                    "note": null
+                },
+                "training_params": {
+                    "early_stopping_patience": 15,
+                    "learning_rate": 0.0001,
+                    "initial_epochs": 15,
+                    "ReduceLROnPlateau_patience": 3,
+                    "ReduceLROnPlateau_factor": 0.1
+                }
+            },
+            "logs": {
+                "best_model_name": "experiment_031_20260424-225259_0_model_resNet50V2_FASD_HSV_RGB_YUV_V2.keras",
+                "training_history": {
+                    "accuracy": [
+                        0.9453335404396057,
+                        0.9885684251785278,
+                        0.9929651618003845,
+                        0.9948997497558594,
+                        0.9949584007263184,
+                        0.9970101714134216,
+                        0.9975085258483887,
+                        0.9968343377113342,
+                        0.9983585476875305,
+                        0.9984757900238037,
+                        0.9979188442230225,
+                        0.9990620017051697,
+                        0.998974084854126,
+                        0.9961308240890503,
+                        0.999355137348175
+                    ],
+                    "eer": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "loss": [
+                        0.139206200838089,
+                        0.034907594323158264,
+                        0.02134283259510994,
+                        0.016956007108092308,
+                        0.015979642048478127,
+                        0.011083687655627728,
+                        0.00795482937246561,
+                        0.010991218499839306,
+                        0.005236580967903137,
+                        0.004729366395622492,
+                        0.006616694387048483,
+                        0.0040558092296123505,
+                        0.004401726648211479,
+                        0.01145013328641653,
+                        0.002983584301546216
+                    ],
+                    "learning_rate": [
+                        9.999999747378752e-05,
+                        9.999999747378752e-05,
+                        9.999999747378752e-05,
+                        9.999999747378752e-05,
+                        9.999999747378752e-05,
+                        9.999999747378752e-05,
+                        9.999999747378752e-05,
+                        9.999999747378752e-05,
+                        9.999999747378752e-05,
+                        9.999999747378752e-05,
+                        9.999999747378752e-05,
+                        9.999999747378752e-05,
+                        9.999999747378752e-05,
+                        9.999999747378752e-05,
+                        9.999999747378752e-05
+                    ]
+                },
+                "epochs": 15,
+                "final_test_metrics": {
+                    "loss": 0.14017075300216675,
+                    "accuracy": 0.9709258079528809,
+                    "eer": 0.039546599496221586
+                }
+            }
+        }
+    ]
+}
