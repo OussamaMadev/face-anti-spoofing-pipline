@@ -872,6 +872,93 @@ def build_resnet50v2_rgb_v4(input_shape=(224, 224, 3)):
     model = tf.keras.models.Model(inputs=img_input, outputs=output, name = "resNet50V2_FASD_RGB_V4")
     return model
 
+def squeeze_excite_block(input_tensor, ratio=16):
+    init = input_tensor
+    filters = init.shape[-1]
+    se_shape = (1, 1, filters)
+
+    se = layers.GlobalAveragePooling2D()(init)
+    se = layers.Reshape(se_shape)(se)
+    se = layers.Dense(filters // ratio, activation='relu', use_bias=False)(se)
+    se = layers.Dense(filters, activation='sigmoid', use_bias=False)(se)
+
+    return layers.multiply([init, se])
+
+def build_resnet50v2_rgb_v4_SE(input_shape=(224, 224, 3)):
+    img_input = layers.Input(shape=input_shape)
+    base_model = tf.keras.applications.ResNet50V2(input_tensor=img_input, include_top=False, weights=None)
+    
+    mid_features = base_model.get_layer("conv3_block3_out").output
+    
+    # Apply SE-Attention
+    attended_features = squeeze_excite_block(mid_features)
+
+    avg_pool = layers.GlobalAveragePooling2D()(attended_features)
+    max_pool = layers.GlobalMaxPooling2D()(attended_features)
+    hybrid = layers.Concatenate()([avg_pool, max_pool])
+    
+    x = layers.Dense(256, activation='relu')(hybrid)
+    x = layers.Dropout(0.3)(x)
+    output = layers.Dense(1, activation='sigmoid')(x)
+    
+    return tf.keras.models.Model(inputs=img_input, outputs=output, name="resNet50V2_SE_V4")
+
+def build_resnet50v2_rgb_v4_Fusion(input_shape=(224, 224, 3)):
+    img_input = layers.Input(shape=input_shape)
+    base_model = tf.keras.applications.ResNet50V2(input_tensor=img_input, include_top=False, weights=None)
+    
+    # Extract shallow and mid features
+    f1 = base_model.get_layer("conv2_block3_out").output # Early texture
+    f2 = base_model.get_layer("conv3_block3_out").output # Mid-level patterns
+
+    # Pool both and fuse
+    p1 = layers.GlobalAveragePooling2D()(f1)
+    p2 = layers.GlobalAveragePooling2D()(f2)
+    
+    fusion = layers.Concatenate()([p1, p2])
+    x = layers.Dense(256, activation='relu')(fusion)
+    x = layers.Dropout(0.3)(x)
+    output = layers.Dense(1, activation='sigmoid')(x)
+    
+    return tf.keras.models.Model(inputs=img_input, outputs=output, name="resNet50V2_Fusion_V4")
+
+def build_resnet50v2_rgb_v4_Patches(input_shape=(224, 224, 3), patch_size=112):
+    img_input = layers.Input(shape=input_shape)
+    
+    # Random Crop Layer (Active during training)
+    x = layers.RandomCrop(patch_size, patch_size)(img_input)
+    x = layers.Resizing(224, 224)(x) # Resize back to expected input size
+    
+    base_model = tf.keras.applications.ResNet50V2(input_tensor=x, include_top=False, weights=None)
+    mid_features = base_model.get_layer("conv3_block3_out").output
+
+    hybrid = layers.Concatenate()([layers.GlobalAveragePooling2D()(mid_features), 
+                                   layers.GlobalMaxPooling2D()(mid_features)])
+    
+    x = layers.Dense(256, activation='relu')(hybrid)
+    output = layers.Dense(1, activation='sigmoid')(x)
+    
+    return tf.keras.models.Model(inputs=img_input, outputs=output, name="resNet50V2_Patches_V4")
+
+
+def build_resnet50v2_rgb_v4_Cutout(input_shape=(224, 224, 3)):
+    img_input = layers.Input(shape=input_shape)
+    
+    # Randomly "delete" a patch of the image (set to 0)
+    # Using a high dropout rate for the spatial area
+    x = layers.SpatialDropout2D(0.1)(img_input) 
+    
+    base_model = tf.keras.applications.ResNet50V2(input_tensor=x, include_top=False, weights=None)
+    mid_features = base_model.get_layer("conv3_block3_out").output
+
+    hybrid = layers.Concatenate()([layers.GlobalAveragePooling2D()(mid_features), 
+                                   layers.GlobalMaxPooling2D()(mid_features)])
+    
+    x = layers.Dense(256, activation='relu')(hybrid)
+    output = layers.Dense(1, activation='sigmoid')(x)
+    
+    return tf.keras.models.Model(inputs=img_input, outputs=output, name="resNet50V2_Cutout_V4")
+
 """
 resnet50v2_hsv_rgb: A 6-channel input model (RGB+HSV) using a full ResNet50V2 backbone and standard Global Average Pooling (GAP).
 (the experiment shows that RGB+HSV is better than RGB alone or HSV alone
