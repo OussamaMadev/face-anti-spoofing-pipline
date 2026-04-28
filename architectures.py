@@ -841,3 +841,72 @@ def build_resnet50v2_hsv_v4(input_shape=(224, 224, 3)):
     
     model = tf.keras.models.Model(inputs=img_input, outputs=output, name = "resNet50V2_FASD_HSV_V4")
     return model
+
+def build_resnet50v2_rgb_v4(input_shape=(224, 224, 3)):
+
+    img_input = layers.Input(shape=input_shape)
+    
+    
+    # hsv = layers.Lambda(lambda x: tf.image.rgb_to_hsv(x))(img_input)
+
+    # rgb_hsv = layers.Concatenate(axis=-1)([img_input, hsv])
+
+    base_model = tf.keras.applications.ResNet50V2(
+        input_tensor=img_input,
+        include_top=False,
+        weights=None 
+    )    
+    
+    mid_features = base_model.get_layer("conv3_block3_out").output
+
+    # Hybrid Pooling
+    avg_pool = layers.GlobalAveragePooling2D()(mid_features)
+    max_pool = layers.GlobalMaxPooling2D()(mid_features)
+    hybrid = layers.Concatenate()([avg_pool, max_pool])
+    x = layers.Dense(256, activation='relu')(hybrid)
+
+    x = tf.keras.layers.Dropout(0.3)(x)
+    
+    output = tf.keras.layers.Dense(1, activation='sigmoid')(x)
+    
+    model = tf.keras.models.Model(inputs=img_input, outputs=output, name = "resNet50V2_FASD_RGB_V4")
+    return model
+
+"""
+resnet50v2_hsv_rgb: A 6-channel input model (RGB+HSV) using a full ResNet50V2 backbone and standard Global Average Pooling (GAP).
+(the experiment shows that RGB+HSV is better than RGB alone or HSV alone
+and adding label smoothing to the loss function improved the eer slightly
+using a batch size of 16 improve the eer compared to batch size of 32)
+
+resnet50v2_hsv_rgb_yuv: A 9-channel input model (RGB+HSV+YUV) using a full ResNet50V2 backbone and standard Global Average Pooling (GAP).
+(the experiment shows that adding YUV channels did not improve performance, likely due to redundancy with RGB and HSV)
+
+resnet50v2_hsv_rgb_drop5: Identical to the baseline but increases Dropout to 0.5 to combat the overfitting and improve generalization.
+(but the experiment shows 0.3 dropout is better than 0.5 dropout)
+
+resnet50_hsv_rgb: Identical to the baseline but uses the ResNet50 (V1) architecture instead of V2.
+(the experiment show that the final layer output of ResNet50V2 is better than ResNet50)
+
+resnet50v2_hsv_rgb_v2: A "Skip-Connection" architecture. It concatenates the final ResNet features with the raw pooled input channels, allowing the classifier to see deep features and global color statistics simultaneously.
+(did not perform well, likely due to the classifier being overwhelmed by the combined feature space)
+
+resnet50v2_texture_fusion: An 8-channel fusion model. It adds a Laplacian edge map and Grayscale to the RGB+HSV input. Uses Hybrid Pooling.
+(did not perform well compared to the RGB+HSV baseline)
+
+resnet50v2_hsv_rgb_h_lbp: Extract LBP texture specifically from the Hue (H) channel of the HSV space. Targets texture inconsistencies in how color is distributed across the face.
+resnet50v2_hsv_rgb_grayscale_lbp: The most robust texture model. It extracts LBP from a Grayscale version of the input, providing the ResNet with a pure "micro-texture" map to detect screen pixels or paper grain.
+(resnet50v2_hsv_rgb_grayscale_lbp outperforms resnet50v2_hsv_rgb_h_lbp and give same eer as resnet50v2_hsv_rgb)
+
+resnet50v2_hsv_rgb_v4:use RGB+HSV as input to ResNet50V2, cuts the ResNet at stage 3 (conv3_block3_out) and uses Hybrid Pooling to capture fine-grained textures before they are abstracted away by deeper layers.
+resnet50v2_hsv_v4: Uses only HSV as input.
+resnet50v2_rgb_v4: Uses RGB instead of HSV as input.
+resnet50v2_hsv_rgb_v4: Uses RGB+HSV as input.
+
+the idea of the resnet v4 models series is found in a paper titled " Exploring Hybrid Pooling of Pretrained Residual Network for Face Anti-spoofing "
+it suggests that the "sweet spot" for texture-based anti-spoofing is around the mid-level features of ResNet (res3cx) we use conv3_block3_out
+and suggests that using a combination of Global Average Pooling and Global Max Pooling (Hybrid Pooling) outperforms using either alone.
+note : i trained the model from scrath without the pretrained weights 
+
+(the latest experiments shows that the resnet50v2_rgb_v4 model is the best model)
+
+"""
