@@ -932,7 +932,7 @@ def build_resnet50v2_rgb_v4_SE(input_shape=(224, 224, 3)):
     return tf.keras.models.Model(inputs=img_input, outputs=output, name="resNet50V2_SE_V4")
 
 
-def build_resnet50v2_rgb_v4(input_shape=(224, 224, 3)):
+def build_resnet50v2_rgb_v4_light_classifier(input_shape=(224, 224, 3)):
 
     img_input = layers.Input(shape=input_shape)
     
@@ -947,13 +947,13 @@ def build_resnet50v2_rgb_v4(input_shape=(224, 224, 3)):
     avg_pool = layers.GlobalAveragePooling2D()(mid_features)
     max_pool = layers.GlobalMaxPooling2D()(mid_features)
     hybrid = layers.Concatenate()([avg_pool, max_pool])
-    x = layers.Dense(256, activation='relu')(hybrid)
+    x = layers.Dense(128, activation='relu')(hybrid)
 
     x = tf.keras.layers.Dropout(0.3)(x)
     
     output = tf.keras.layers.Dense(1, activation='sigmoid')(x)
     
-    model = tf.keras.models.Model(inputs=img_input, outputs=output, name = "resNet50V2_FASD_RGB_V4")
+    model = tf.keras.models.Model(inputs=img_input, outputs=output, name = "resNet50V2_FASD_RGB_V4_light_classifier")
     return model
 
 def build_resnet50v2_rgb_v4_4erasedPatches_scale_5(input_shape=(224, 224, 3)):
@@ -983,6 +983,37 @@ def build_resnet50v2_rgb_v4_4erasedPatches_scale_5(input_shape=(224, 224, 3)):
     output = tf.keras.layers.Dense(1, activation='sigmoid')(x)
     
     model = tf.keras.models.Model(inputs=img_input, outputs=output, name = "resNet50V2_FASD_RGB_V4_4erasedPatches_scale_5")
+    return model
+
+def build_resnet50v2_rgb_v4_4erasedPatches_scale_5_prob_05(input_shape=(224, 224, 3)):
+
+    img_input = layers.Input(shape=input_shape)
+    prob = (0.5, 0.5)  # 50% chance to apply erasing
+    scale = (0.05, 0.05)
+
+    input = layers.RandomErasing(factor=prob, scale=scale, fill_value=0.0)(img_input)
+    input = layers.RandomErasing(factor=prob, scale=scale, fill_value=0.0)(input)
+    input = layers.RandomErasing(factor=prob, scale=scale, fill_value=0.0)(input)
+    input = layers.RandomErasing(factor=prob, scale=scale, fill_value=0.0)(input)
+    
+    base_model = tf.keras.applications.ResNet50V2(
+        input_tensor=input,
+        include_top=False,
+        weights=None 
+    )    
+    
+    mid_features = base_model.get_layer("conv3_block3_out").output
+
+    avg_pool = layers.GlobalAveragePooling2D()(mid_features)
+    max_pool = layers.GlobalMaxPooling2D()(mid_features)
+    hybrid = layers.Concatenate()([avg_pool, max_pool])
+    x = layers.Dense(256, activation='relu')(hybrid)
+
+    x = tf.keras.layers.Dropout(0.3)(x)
+    
+    output = tf.keras.layers.Dense(1, activation='sigmoid')(x)
+    
+    model = tf.keras.models.Model(inputs=img_input, outputs=output, name = "resNet50V2_FASD_RGB_V4_4erasedPatches_scale_5_prob_0.5")
     return model
 
 
@@ -1082,20 +1113,126 @@ def build_resNet50V2_rgb_v4_4streams(input_shape=(224, 224, 3)):
 
 
 
+# --- 1. Custom Random Erasing Layer (The 'Blocker') ---
+# This forces the model to learn from multiple parts of the face
+def get_erasing_layer():
+    return layers.RandomErasing(
+        factor=0.5,           # 50% chance to erase
+        scale=(0.02, 0.08),   # Small squares to preserve landmarks
+        fill_value=0.0,
+        name="random_erasing"
+    )
+
+def build_ultimate_fasd_v6(input_shape=(224, 224, 3)):
+    # Base Input
+    full_img_input = layers.Input(shape=input_shape, name="original_input")
+
+    # --- 2. Shared ResNet Backbone (Texture Expert) ---
+    # We use conv2 for higher resolution texture features
+    base_resnet = tf.keras.applications.ResNet50V2(
+        input_shape=(224, 224, 3),
+        include_top=False,
+        weights=None # Or 'imagenet' if you want a faster start
+    )
+    
+    # Targeting conv2_block3_out for high-res local artifacts
+    inner_resnet = models.Model(
+        inputs=base_resnet.input,
+        outputs=base_resnet.get_layer("conv2_block3_out").output,
+        name="shared_resnet_texture"
+    )
+
+    # --- 3. Shared Stream Logic (Including Erasing) ---
+    erasing = get_erasing_layer()
+    
+    def process_stream(tensor, training=True):
+        x = erasing(tensor, training=training)
+        x = inner_resnet(x)
+        # Hybrid Pooling (Max + Avg)
+        avg_p = layers.GlobalAveragePooling2D()(x)
+        max_p = layers.GlobalMaxPooling2D()(x)
+        return layers.Concatenate()([avg_p, max_p])
+
+    # --- 4. Stream Extraction (4 Patches) ---
+    def get_patch(x, x1, y1, x2, y2):
+        patch = layers.Lambda(lambda img: img[:, y1:y2, x1:x2, :])(x)
+        return layers.Resizing(224, 224)(patch)
+
+    # Local Patches (TL, TR, BL, BR)
+    feat_tl = process_stream(get_patch(full_img_input, 0, 0, 112, 112))
+    feat_tr = process_stream(get_patch(full_img_input, 112, 0, 224, 112))
+    feat_bl = process_stream(get_patch(full_img_input, 0, 112, 112, 224))
+    feat_br = process_stream(get_patch(full_img_input, 112, 112, 224, 224))
+
+    # --- 5. Global ViT Stream (Consistency Expert) ---
+    # We use a simple Transformer encoder block for the global context
+    # This checks for unnatural lighting distributions
+    def transformer_stream(x):
+        # Patchify (8x8 patches)
+        p_size = 16
+        num_patches = (224 // p_size) ** 2
+        x = layers.Conv2D(256, kernel_size=p_size, strides=p_size)(x)
+        x = layers.Reshape((num_patches, 256))(x)
+        
+        # Self-Attention Block
+        attn = layers.MultiHeadAttention(num_heads=8, key_dim=256)(x, x)
+        x = layers.Add()([x, attn])
+        x = layers.LayerNormalization()(x)
+        
+        # MLP Block
+        mlp = layers.Dense(512, activation='gelu')(x)
+        mlp = layers.Dense(256)(mlp)
+        x = layers.Add()([x, mlp])
+        
+        return layers.GlobalAveragePooling1D()(x)
+
+    feat_global = transformer_stream(full_img_input)
+
+    # --- 6. The Fusion Head ---
+    merged = layers.Concatenate(name="fusion_layer")(
+        [feat_tl, feat_tr, feat_bl, feat_br, feat_global]
+    )
+    
+    # Deep Classifier
+    x = layers.Dense(1024, activation='relu')(merged)
+    x = layers.BatchNormalization()(x)
+    x = layers.Dropout(0.5)(x)
+    
+    x = layers.Dense(256, activation='relu')(x)
+    x = layers.Dropout(0.3)(x)
+    
+    output = layers.Dense(1, activation='sigmoid', name="final_decision")(x)
+
+    model = models.Model(inputs=full_img_input, outputs=output, name="FASD_Zero_EER_Candidate")
+    return model
 
 
 
 
 
+def build_resnet50v2_rgb_v4(input_shape=(224, 224, 3)):
 
+    img_input = layers.Input(shape=input_shape)
+    
+    base_model = tf.keras.applications.ResNet50V2(
+        input_tensor=img_input,
+        include_top=False,
+        weights=None 
+    )    
+    
+    mid_features = base_model.get_layer("conv3_block3_out").output
 
+    avg_pool = layers.GlobalAveragePooling2D()(mid_features)
+    max_pool = layers.GlobalMaxPooling2D()(mid_features)
+    hybrid = layers.Concatenate()([avg_pool, max_pool])
+    x = layers.Dense(256, activation='relu')(hybrid)
 
-
-
-
-
-
-
+    x = tf.keras.layers.Dropout(0.3)(x)
+    
+    output = tf.keras.layers.Dense(1, activation='sigmoid')(x)
+    
+    model = tf.keras.models.Model(inputs=img_input, outputs=output, name = "resNet50V2_FASD_RGB_V4")
+    return model
 
 
 """
