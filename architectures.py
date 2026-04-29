@@ -842,35 +842,6 @@ def build_resnet50v2_hsv_v4(input_shape=(224, 224, 3)):
     model = tf.keras.models.Model(inputs=img_input, outputs=output, name = "resNet50V2_FASD_HSV_V4")
     return model
 
-def build_resnet50v2_rgb_v4(input_shape=(224, 224, 3)):
-
-    img_input = layers.Input(shape=input_shape)
-    
-    
-    # hsv = layers.Lambda(lambda x: tf.image.rgb_to_hsv(x))(img_input)
-
-    # rgb_hsv = layers.Concatenate(axis=-1)([img_input, hsv])
-
-    base_model = tf.keras.applications.ResNet50V2(
-        input_tensor=img_input,
-        include_top=False,
-        weights=None 
-    )    
-    
-    mid_features = base_model.get_layer("conv3_block3_out").output
-
-    # Hybrid Pooling
-    avg_pool = layers.GlobalAveragePooling2D()(mid_features)
-    max_pool = layers.GlobalMaxPooling2D()(mid_features)
-    hybrid = layers.Concatenate()([avg_pool, max_pool])
-    x = layers.Dense(256, activation='relu')(hybrid)
-
-    x = tf.keras.layers.Dropout(0.3)(x)
-    
-    output = tf.keras.layers.Dense(1, activation='sigmoid')(x)
-    
-    model = tf.keras.models.Model(inputs=img_input, outputs=output, name = "resNet50V2_FASD_RGB_V4")
-    return model
 
 def squeeze_excite_block(input_tensor, ratio=16):
     init = input_tensor
@@ -884,24 +855,6 @@ def squeeze_excite_block(input_tensor, ratio=16):
 
     return layers.multiply([init, se])
 
-def build_resnet50v2_rgb_v4_SE(input_shape=(224, 224, 3)):
-    img_input = layers.Input(shape=input_shape)
-    base_model = tf.keras.applications.ResNet50V2(input_tensor=img_input, include_top=False, weights=None)
-    
-    mid_features = base_model.get_layer("conv3_block3_out").output
-    
-    # Apply SE-Attention
-    attended_features = squeeze_excite_block(mid_features)
-
-    avg_pool = layers.GlobalAveragePooling2D()(attended_features)
-    max_pool = layers.GlobalMaxPooling2D()(attended_features)
-    hybrid = layers.Concatenate()([avg_pool, max_pool])
-    
-    x = layers.Dense(256, activation='relu')(hybrid)
-    x = layers.Dropout(0.3)(x)
-    output = layers.Dense(1, activation='sigmoid')(x)
-    
-    return tf.keras.models.Model(inputs=img_input, outputs=output, name="resNet50V2_SE_V4")
 
 def build_resnet50v2_rgb_v4_Fusion(input_shape=(224, 224, 3)):
     img_input = layers.Input(shape=input_shape)
@@ -958,6 +911,192 @@ def build_resnet50v2_rgb_v4_Cutout(input_shape=(224, 224, 3)):
     output = layers.Dense(1, activation='sigmoid')(x)
     
     return tf.keras.models.Model(inputs=img_input, outputs=output, name="resNet50V2_Cutout_V4")
+
+
+def build_resnet50v2_rgb_v4_SE(input_shape=(224, 224, 3)):
+    img_input = layers.Input(shape=input_shape)
+    base_model = tf.keras.applications.ResNet50V2(input_tensor=img_input, include_top=False, weights=None)
+    
+    mid_features = base_model.get_layer("conv3_block3_out").output
+    
+    attended_features = squeeze_excite_block(mid_features)
+
+    avg_pool = layers.GlobalAveragePooling2D()(attended_features)
+    max_pool = layers.GlobalMaxPooling2D()(attended_features)
+    hybrid = layers.Concatenate()([avg_pool, max_pool])
+    
+    x = layers.Dense(256, activation='relu')(hybrid)
+    x = layers.Dropout(0.3)(x)
+    output = layers.Dense(1, activation='sigmoid')(x)
+    
+    return tf.keras.models.Model(inputs=img_input, outputs=output, name="resNet50V2_SE_V4")
+
+
+def build_resnet50v2_rgb_v4(input_shape=(224, 224, 3)):
+
+    img_input = layers.Input(shape=input_shape)
+    
+    base_model = tf.keras.applications.ResNet50V2(
+        input_tensor=img_input,
+        include_top=False,
+        weights=None 
+    )    
+    
+    mid_features = base_model.get_layer("conv3_block3_out").output
+
+    avg_pool = layers.GlobalAveragePooling2D()(mid_features)
+    max_pool = layers.GlobalMaxPooling2D()(mid_features)
+    hybrid = layers.Concatenate()([avg_pool, max_pool])
+    x = layers.Dense(256, activation='relu')(hybrid)
+
+    x = tf.keras.layers.Dropout(0.3)(x)
+    
+    output = tf.keras.layers.Dense(1, activation='sigmoid')(x)
+    
+    model = tf.keras.models.Model(inputs=img_input, outputs=output, name = "resNet50V2_FASD_RGB_V4")
+    return model
+
+def build_resnet50v2_rgb_v4_4erasedPatches_scale_5(input_shape=(224, 224, 3)):
+
+    img_input = layers.Input(shape=input_shape)
+
+    input = layers.RandomErasing(factor=(1.0,1.0), scale=(0.05, 0.05), fill_value=0.0)(img_input)
+    input = layers.RandomErasing(factor=(1.0,1.0), scale=(0.05, 0.05), fill_value=0.0)(input)
+    input = layers.RandomErasing(factor=(1.0,1.0), scale=(0.05, 0.05), fill_value=0.0)(input)
+    input = layers.RandomErasing(factor=(1.0,1.0), scale=(0.05, 0.05), fill_value=0.0)(input)
+    
+    base_model = tf.keras.applications.ResNet50V2(
+        input_tensor=input,
+        include_top=False,
+        weights=None 
+    )    
+    
+    mid_features = base_model.get_layer("conv3_block3_out").output
+
+    avg_pool = layers.GlobalAveragePooling2D()(mid_features)
+    max_pool = layers.GlobalMaxPooling2D()(mid_features)
+    hybrid = layers.Concatenate()([avg_pool, max_pool])
+    x = layers.Dense(256, activation='relu')(hybrid)
+
+    x = tf.keras.layers.Dropout(0.3)(x)
+    
+    output = tf.keras.layers.Dense(1, activation='sigmoid')(x)
+    
+    model = tf.keras.models.Model(inputs=img_input, outputs=output, name = "resNet50V2_FASD_RGB_V4_4erasedPatches_scale_5")
+    return model
+
+
+def build_resNet50V2_rgb_v4_5streams(input_shape=(224, 224, 3)):
+    full_img_input = layers.Input(shape=input_shape, name="original_input")
+
+    def extract_upscale(x, x1, y1, x2, y2, name):
+        patch = layers.Lambda(lambda img: img[:, y1:y2, x1:x2, :])(x)
+        return layers.Resizing(224, 224, name=f"upscale_{name}")(patch)
+
+    p_tl = extract_upscale(full_img_input, 0, 0, 112, 112, "TL")
+    p_tr = extract_upscale(full_img_input, 112, 0, 224, 112, "TR")
+    p_bl = extract_upscale(full_img_input, 0, 112, 112, 224, "BL")
+    p_br = extract_upscale(full_img_input, 112, 112, 224, 224, "BR")
+
+    p_global = full_img_input 
+
+    shared_resnet = tf.keras.applications.ResNet50V2(
+        input_shape=(224, 224, 3),
+        include_top=False,
+        weights=None
+    )
+    
+    feature_extractor = models.Model(
+        inputs=shared_resnet.input,
+        outputs=shared_resnet.get_layer("conv3_block3_out").output,
+        name="shared_backbone_224"
+    )
+
+    def get_features(tensor):
+        x = feature_extractor(tensor)
+        avg_p = layers.GlobalAveragePooling2D()(x)
+        max_p = layers.GlobalMaxPooling2D()(x)
+        return layers.Concatenate()([avg_p, max_p])
+
+    feat_tl = get_features(p_tl)
+    feat_tr = get_features(p_tr)
+    feat_bl = get_features(p_bl)
+    feat_br = get_features(p_br)
+    feat_global = get_features(p_global)
+
+    merged = layers.Concatenate(name="merge_5_streams")(
+        [feat_tl, feat_tr, feat_bl, feat_br, feat_global]
+    )
+
+    x = layers.Dense(256, activation='relu')(merged)
+    x = layers.Dropout(0.3)(x)
+    output = layers.Dense(1, activation='sigmoid')(x)
+
+    return models.Model(inputs=full_img_input, outputs=output, name="resNet50V2_rgb_v4_5streams")
+
+def build_resNet50V2_rgb_v4_4streams(input_shape=(224, 224, 3)):
+    full_img_input = layers.Input(shape=input_shape, name="original_input")
+
+    def extract(x, x1, y1, x2, y2, name):
+        patch = layers.Lambda(lambda img: img[:, y1:y2, x1:x2, :], name=f"patch_{name}")(x)
+        return patch
+
+    p_tl = extract(full_img_input, 0, 0, 112, 112, "TL")
+    p_tr = extract(full_img_input, 112, 0, 224, 112, "TR")
+    p_bl = extract(full_img_input, 0, 112, 112, 224, "BL")
+    p_br = extract(full_img_input, 112, 112, 224, 224, "BR")
+
+
+    shared_resnet = tf.keras.applications.ResNet50V2(
+        input_shape=(112, 112, 3),
+        include_top=False,
+        weights=None
+    )
+    
+    feature_extractor = models.Model(
+        inputs=shared_resnet.input,
+        outputs=shared_resnet.get_layer("conv3_block3_out").output,
+        name="shared_backbone_224"
+    )
+
+    def get_features(tensor):
+        x = feature_extractor(tensor)
+        avg_p = layers.GlobalAveragePooling2D()(x)
+        max_p = layers.GlobalMaxPooling2D()(x)
+        return layers.Concatenate()([avg_p, max_p])
+
+    feat_tl = get_features(p_tl)
+    feat_tr = get_features(p_tr)
+    feat_bl = get_features(p_bl)
+    feat_br = get_features(p_br)
+
+    merged = layers.Concatenate(name="merge_4_streams")(
+        [feat_tl, feat_tr, feat_bl, feat_br]
+    )
+
+    x = layers.Dense(256, activation='relu')(merged)
+    x = layers.Dropout(0.3)(x)
+    output = layers.Dense(1, activation='sigmoid')(x)
+
+    return models.Model(inputs=full_img_input, outputs=output, name="resNet50V2_rgb_v4_4streams")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 """
 resnet50v2_hsv_rgb: A 6-channel input model (RGB+HSV) using a full ResNet50V2 backbone and standard Global Average Pooling (GAP).
