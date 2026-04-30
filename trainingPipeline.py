@@ -145,9 +145,24 @@ class TrainingPipeline:
         
         
         label_smoothing = m_params.get("label_smoothing", 0.0)
+        isFocalLoss = m_params.get("isFocalLoss", 0)
+        
+        if isFocalLoss:
+            alpha = m_params.get("focal_alpha", 0.25)
+            gamma = m_params.get("focal_gamma", 2.0)
+            apply_class_balancing = m_params.get("apply_class_balancing", 0) == 1
+            loss = tf.keras.losses.BinaryFocalCrossentropy(
+                label_smoothing=label_smoothing,
+                alpha=alpha,
+                gamma=gamma,
+                apply_class_balancing=apply_class_balancing
+            )
+        else:
+            loss = tf.keras.losses.BinaryCrossentropy(label_smoothing=label_smoothing)
+        
         model.compile(
             optimizer=optimizer,
-            loss= tf.keras.losses.BinaryCrossentropy(label_smoothing=label_smoothing),
+            loss=loss,
             metrics=['accuracy' , eer]
         )
         
