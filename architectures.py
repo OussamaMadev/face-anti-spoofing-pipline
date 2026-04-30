@@ -1206,8 +1206,86 @@ def build_ultimate_fasd_v6(input_shape=(224, 224, 3)):
     model = models.Model(inputs=full_img_input, outputs=output, name="FASD_Zero_EER_Candidate")
     return model
 
+def build_pure_vit_fasd(input_shape=(224, 224, 3), patch_size=16, num_layers=8):
+    inputs = layers.Input(shape=input_shape)
+
+    # 1. Patchify the image (224/16 = 14x14 = 196 patches)
+    # We use a Conv2D layer as a "Patch Encoder"
+    projection_dim = 256
+    patches = layers.Conv2D(projection_dim, kernel_size=patch_size, strides=patch_size, name="patch_encoder")(inputs)
+    
+    # Reshape to (Batch, 196, 256)
+    num_patches = (input_shape[0] // patch_size) ** 2
+    x = layers.Reshape((num_patches, projection_dim))(patches)
+
+    # 2. Positional Embedding (Crucial so ViT knows 'where' the eyes/mouth are)
+    positions = tf.range(start=0, limit=num_patches, delta=1)
+    pos_embedding = layers.Embedding(input_dim=num_patches, output_dim=projection_dim)(positions)
+    x = x + pos_embedding
+
+    # 3. Transformer Blocks
+    for i in range(num_layers):
+        # Layer Norm 1 + Multi-Head Attention
+        x1 = layers.LayerNormalization(epsilon=1e-6)(x)
+        attention_output = layers.MultiHeadAttention(
+            num_heads=8, key_dim=projection_dim // 8, dropout=0.1
+        )(x1, x1)
+        x2 = layers.Add()([attention_output, x])
+        
+        # Layer Norm 2 + MLP (Feed Forward)
+        x3 = layers.LayerNormalization(epsilon=1e-6)(x2)
+        x3 = layers.Dense(projection_dim * 2, activation=tf.nn.gelu)(x3)
+        x3 = layers.Dropout(0.1)(x3)
+        x3 = layers.Dense(projection_dim)(x3)
+        x3 = layers.Dropout(0.1)(x3)
+        x = layers.Add()([x3, x2])
+
+    # 4. Global Representation (Class Token equivalent)
+    # Instead of a CLS token, we'll use Global Average Pooling for stability
+    representation = layers.GlobalAveragePooling1D()(x)
+    representation = layers.LayerNormalization(epsilon=1e-6)(representation)
+
+    # 5. Classification Head
+    x = layers.Dense(128, activation='relu')(representation)
+    x = layers.Dropout(0.5)(x) # High dropout to match your 2% EER issue
+    output = layers.Dense(1, activation='sigmoid')(x)
+
+    model = models.Model(inputs=inputs, outputs=output, name="Pure_ViT_FASD")
+    return model
 
 
+def build_resnet_vit_hybrid_v7(input_shape=(224, 224, 3)):
+    img_input = layers.Input(shape=input_shape)
+    
+    # 1. Erasing Layer (To force the ViT to look at multiple patches)
+    x = layers.RandomErasing(factor=0.3, scale=(0.02, 0.1))(img_input)
+
+    # 2. ResNet Backbone
+    base_model = tf.keras.applications.ResNet50V2(input_tensor=x, include_top=False, weights=None)
+    mid_features = base_model.get_layer("conv3_block3_out").output # Shape: (28, 28, 512)
+
+    # 3. Lightweight Transformer Block (The "ViT" part)
+    # We treat the 28x28 spatial grid as a sequence of 784 tokens
+    tokens = layers.Reshape((784, 512))(mid_features)
+    
+    # Self-Attention allows every part of the face to talk to each other
+    attn_output = layers.MultiHeadAttention(num_heads=4, key_dim=128)(tokens, tokens)
+    x = layers.Add()([tokens, attn_output])
+    x = layers.LayerNormalization()(x)
+
+    # 4. Global Reasoning & Classification
+    # This pools the global "attention" into a single vector
+    avg_p = layers.GlobalAveragePooling1D()(x)
+    max_p = layers.GlobalMaxPooling1D()(x)
+    
+    # 768 features (256 from avg + 512 from max-like logic, or concat)
+    hybrid_feat = layers.Concatenate()([avg_p, max_p])
+    
+    x = layers.Dense(256, activation='relu')(hybrid_feat)
+    x = layers.Dropout(0.4)(x) # Increased dropout to fix your generalization gap
+    output = layers.Dense(1, activation='sigmoid')(x)
+    
+    return models.Model(inputs=img_input, outputs=output, name="ResNet_ViT_Hybrid_V7")
 
 
 def build_resnet50v2_rgb_v4(input_shape=(224, 224, 3)):
