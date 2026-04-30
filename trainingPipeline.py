@@ -136,8 +136,11 @@ class TrainingPipeline:
         input_shape = tuple(d_params["input_size"]) 
         model = arch_fn(input_shape=input_shape)
 
-      
-        optimizer = tf.keras.optimizers.Adam(learning_rate=t_params["learning_rate"])
+        isAdamW = m_params.get("isAdamW", 0) == 1
+        if isAdamW:
+            optimizer = tf.keras.optimizers.experimental.AdamW(learning_rate=t_params["learning_rate"])
+        else:
+            optimizer = tf.keras.optimizers.Adam(learning_rate=t_params["learning_rate"])
        
         # 4. Compile
         def eer(y_true, y_pred):
