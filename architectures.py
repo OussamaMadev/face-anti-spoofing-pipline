@@ -1288,6 +1288,31 @@ def build_resnet_vit_hybrid_v7(input_shape=(224, 224, 3)):
     return models.Model(inputs=img_input, outputs=output, name="ResNet_ViT_Hybrid_V7")
 
 
+def build_resnet50v2_rgb_v4_power_classifier(input_shape=(224, 224, 3)):
+
+    img_input = layers.Input(shape=input_shape)
+    
+    base_model = tf.keras.applications.ResNet50V2(
+        input_tensor=img_input,
+        include_top=False,
+        weights=None 
+    )    
+    
+    mid_features = base_model.get_layer("conv3_block3_out").output
+
+    avg_pool = layers.GlobalAveragePooling2D()(mid_features)
+    max_pool = layers.GlobalMaxPooling2D()(mid_features)
+    hybrid = layers.Concatenate()([avg_pool, max_pool])
+
+    x = layers.Dense(256, activation='relu', kernel_regularizer='l2')(hybrid) # Added L2 regularization for better generalization
+    x = layers.Dropout(0.6)(x) # Higher dropout to prevent overfitting
+    x = layers.Dense(64, activation='relu')(x)
+    
+    output = layers.Dense(1, activation='sigmoid', name="classifier")(x)
+    
+    model = tf.keras.models.Model(inputs=img_input, outputs=output, name = "resNet50V2_FASD_RGB_V4_Power_Classifier")
+    return model
+
 def build_resnet50v2_rgb_v4(input_shape=(224, 224, 3)):
 
     img_input = layers.Input(shape=input_shape)
