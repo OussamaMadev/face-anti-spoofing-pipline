@@ -1337,6 +1337,100 @@ def build_resnet50v2_rgb_v4(input_shape=(224, 224, 3)):
     model = tf.keras.models.Model(inputs=img_input, outputs=output, name = "resNet50V2_FASD_RGB_V4")
     return model
 
+class LGONBPLayer(tf.keras.layers.Layer):
+    def __init__(self, P=12, n=3, J=8, **kwargs):
+        super().__init__(**kwargs)
+        self.P = P
+        self.n = n
+        self.J = J
+
+    def _get_lgop_hist(self, channel):
+        # channel is (Batch, H, W)
+        # 1. Add channel dim to make it (Batch, H, W, 1)
+        # This ensures rank 4 for extract_patches
+        img_4d = tf.expand_dims(channel, -1)
+        
+        patches = tf.image.extract_patches(
+            images=img_4d,
+            sizes=[1, 3, 3, 1],
+            strides=[1, 1, 1, 1],
+            rates=[1, 1, 1, 1],
+            padding='SAME'
+        )
+        
+        # Center pixel (gc) and neighbors (gr,p) (Equation 1, 2)
+        # In a 3x3 patch, index 4 is the center
+        gc = patches[..., 4:5]
+        neighbors = tf.concat([patches[..., :4], patches[..., 5:]], axis=-1)
+        
+        # Histogram of neighbors to represent local intensity (Eq 5)
+        hist = tf.histogram_fixed_width(neighbors, [0.0, 255.0], nbins=256)
+        # Ensure the output is (Batch, 256)
+        return tf.cast(hist, tf.float32)
+
+    def _get_nlbp_hist(self, channel):
+        # Flattened global statistics (Equation 6, 7)
+        flat_channel = tf.reshape(channel, [tf.shape(channel)[0], -1])
+        
+        # Calculate anchors based on global mean (Equation 8)
+        global_mean = tf.reduce_mean(flat_channel, axis=-1, keepdims=True)
+        center_quantized = tf.where(channel > tf.expand_dims(global_mean, -1), 1.0, 0.0)
+        
+        hist = tf.histogram_fixed_width(center_quantized, [0.0, 1.0], nbins=128)
+        return tf.cast(hist, tf.float32)
+
+    def call(self, inputs):
+        # Convert RGB input (Batch, 224, 224, 3) to HSV
+        hsv = tf.image.rgb_to_hsv(inputs)
+        
+        all_hists = []
+        for i in range(3): # Separate H, S, V channels
+            channel = hsv[..., i]
+            lgop = self._get_lgop_hist(channel)
+            nlbp = self._get_nlbp_hist(channel)
+            all_hists.append(lgop)
+            all_hists.append(nlbp)
+            
+        # Concatenate histograms (Equation 9, 10)
+        combined = tf.concat(all_hists, axis=-1)
+        # L2 normalization for discriminative features
+        return tf.nn.l2_normalize(combined, axis=-1)
+
+    # Required for Keras to infer shape during model.summary()
+    def compute_output_shape(self, input_shape):
+        # (256 * 3) for LGOP + (128 * 3) for NLBP = 1152
+        return (input_shape[0], 1152)
+
+def build_lgonbp_dense_model(input_shape=(224, 224, 3)):
+    img_input = tf.keras.layers.Input(shape=input_shape)
+    
+    # 1. Feature Extraction Layer
+    # This replaces the manual SVM input pipeline
+    lgonbp_features = LGONBPLayer()(img_input)
+    
+    # 2. DenseNet-style Classifier Head
+    x = tf.keras.layers.Dense(1024)(lgonbp_features)
+    x = tf.keras.layers.BatchNormalization()(x)
+    x = tf.keras.layers.Activation('relu')(x)
+    x = tf.keras.layers.Dropout(0.5)(x)
+    
+    # Residual Dense Block
+    shortcut = x
+    x = tf.keras.layers.Dense(1024)(x)
+    x = tf.keras.layers.BatchNormalization()(x)
+    x = tf.keras.layers.Activation('relu')(x)
+    x = tf.keras.layers.Add()([x, shortcut])
+    
+    # Bottleneck and Output
+    x = tf.keras.layers.Dense(256, activation='relu')(x)
+    x = tf.keras.layers.Dropout(0.3)(x)
+    output = tf.keras.layers.Dense(1, activation='sigmoid')(x)
+    
+    model = tf.keras.models.Model(inputs=img_input, outputs=output, name="LGONBP_Dense_Model")
+        
+    return model
+
+
 
 """
 resnet50v2_hsv_rgb: A 6-channel input model (RGB+HSV) using a full ResNet50V2 backbone and standard Global Average Pooling (GAP).
