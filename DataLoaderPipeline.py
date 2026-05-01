@@ -220,10 +220,25 @@ class DataLoaderPipeline:
         if br_range != 0:
             img = tf.image.random_brightness(img, max_delta=br_range)
 
-        # # todo  : add contrast augmentation with a range in aug_params
         ct_range = self.aug_params.get("contrast_range", [1.0, 1.0])
         if ct_range != [1.0, 1.0]:
             img = tf.image.random_contrast(img, lower=ct_range[0], upper=ct_range[1])
+
+        # 4. Random Saturation (Forces model to ignore color intensity tricks)
+        sat_range = self.aug_params.get("saturation_range", [1.0, 1.0]) # Example: [0.5, 1.5]
+        if sat_range != [1.0, 1.0]:
+            img = tf.image.random_saturation(img, lower=sat_range[0], upper=sat_range[1])
+
+        # 5. Random Hue (Prevents overfitting to specific lighting/skin tones)
+        hue_delta = self.aug_params.get("hue_delta", 0) # Example: 0.05
+        if hue_delta != 0:
+            img = tf.image.random_hue(img, max_delta=hue_delta)
+
+        # 6. Gaussian Noise (Bridges the "Generalization Gap")
+        noise_std = self.aug_params.get("gaussian_noise", 0) # Example: 0.02
+        if noise_std > 0:
+            noise = tf.random.normal(shape=tf.shape(img), mean=0.0, stddev=noise_std, dtype=tf.float32)
+            img = img + noise
 
         # 4. Zoom / Crop
         zoom = self.aug_params.get("zoom_range", 0)
