@@ -1344,12 +1344,18 @@ class LGONBPLayer(tf.keras.layers.Layer):
         self.n = n
         self.J = J
 
-    def _get_lgop_hist(self, channel):
-        # channel is (Batch, H, W)
-        # 1. Add channel dim to make it (Batch, H, W, 1)
-        # This ensures rank 4 for extract_patches
+    def _get_batch_hists(self, data, nbins, min_val, max_val):
+        # Use tf.map_fn to compute histograms for each image in the batch separately
+        # this ensures we return (Batch, nbins) instead of just (nbins,)
+        return tf.map_fn(
+            fn=lambda x: tf.histogram_fixed_width(x, [min_val, max_val], nbins=nbins),
+            elems=data,
+            fn_output_signature=tf.int32
+        )
+
+    def _get_lgop_features(self, channel):
+        # channel shape: (Batch, 224, 224)
         img_4d = tf.expand_dims(channel, -1)
-        
         patches = tf.image.extract_patches(
             images=img_4d,
             sizes=[1, 3, 3, 1],
@@ -1357,48 +1363,41 @@ class LGONBPLayer(tf.keras.layers.Layer):
             rates=[1, 1, 1, 1],
             padding='SAME'
         )
-        
-        # Center pixel (gc) and neighbors (gr,p) (Equation 1, 2)
-        # In a 3x3 patch, index 4 is the center
-        gc = patches[..., 4:5]
+        # Neighbors (Equation 1, 2)
         neighbors = tf.concat([patches[..., :4], patches[..., 5:]], axis=-1)
         
-        # Histogram of neighbors to represent local intensity (Eq 5)
-        hist = tf.histogram_fixed_width(neighbors, [0.0, 255.0], nbins=256)
-        # Ensure the output is (Batch, 256)
+        # Compute histogram per batch item
+        hist = self._get_batch_hists(neighbors, nbins=256, min_val=0.0, max_val=255.0)
         return tf.cast(hist, tf.float32)
 
-    def _get_nlbp_hist(self, channel):
-        # Flattened global statistics (Equation 6, 7)
+    def _get_nlbp_features(self, channel):
+        # Global anchors logic (Equation 7, 8)
+        # Flatten spatial dimensions but keep batch: (Batch, 224*224)
         flat_channel = tf.reshape(channel, [tf.shape(channel)[0], -1])
-        
-        # Calculate anchors based on global mean (Equation 8)
         global_mean = tf.reduce_mean(flat_channel, axis=-1, keepdims=True)
+        
+        # Center quantization (Equation 8)
         center_quantized = tf.where(channel > tf.expand_dims(global_mean, -1), 1.0, 0.0)
         
-        hist = tf.histogram_fixed_width(center_quantized, [0.0, 1.0], nbins=128)
+        hist = self._get_batch_hists(center_quantized, nbins=128, min_val=0.0, max_val=1.0)
         return tf.cast(hist, tf.float32)
 
     def call(self, inputs):
-        # Convert RGB input (Batch, 224, 224, 3) to HSV
+        # Convert RGB to HSV
         hsv = tf.image.rgb_to_hsv(inputs)
-        
         all_hists = []
-        for i in range(3): # Separate H, S, V channels
+        
+        for i in range(3): # Process H, S, V separately (Fig 2)
             channel = hsv[..., i]
-            lgop = self._get_lgop_hist(channel)
-            nlbp = self._get_nlbp_hist(channel)
-            all_hists.append(lgop)
-            all_hists.append(nlbp)
+            all_hists.append(self._get_lgop_features(channel))
+            all_hists.append(self._get_nlbp_features(channel))
             
-        # Concatenate histograms (Equation 9, 10)
-        combined = tf.concat(all_hists, axis=-1)
-        # L2 normalization for discriminative features
-        return tf.nn.l2_normalize(combined, axis=-1)
+        # Concatenate along the feature dimension (axis 1)
+        combined = tf.concat(all_hists, axis=1) # Results in (Batch, 1152)
+        return tf.nn.l2_normalize(combined, axis=1)
 
-    # Required for Keras to infer shape during model.summary()
     def compute_output_shape(self, input_shape):
-        # (256 * 3) for LGOP + (128 * 3) for NLBP = 1152
+        # Explicitly define output shape for the Dense layer to recognize
         return (input_shape[0], 1152)
 
 def build_lgonbp_dense_model(input_shape=(224, 224, 3)):
