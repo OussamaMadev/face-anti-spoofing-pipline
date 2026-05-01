@@ -1327,7 +1327,7 @@ def build_resnet50v2_rgb_v4(input_shape=(224, 224, 3)):
 
     avg_pool = layers.GlobalAveragePooling2D()(mid_features)
     max_pool = layers.GlobalMaxPooling2D()(mid_features)
-    hybrid = layers.Concatenate()([avg_pool, max_pool])
+    hybrid = layers.Concatenate(name = "hybrid_pooling")([avg_pool, max_pool])
     x = layers.Dense(256, activation='relu')(hybrid)
 
     x = tf.keras.layers.Dropout(0.3)(x)
