@@ -1344,17 +1344,27 @@ class LGONBPLayer(tf.keras.layers.Layer):
         self.n = n
         self.J = J
 
-    def _get_batch_hists(self, data, nbins, min_val, max_val):
-        # Use tf.map_fn to compute histograms for each image in the batch separately
-        # this ensures we return (Batch, nbins) instead of just (nbins,)
-        return tf.map_fn(
-            fn=lambda x: tf.histogram_fixed_width(x, [min_val, max_val], nbins=nbins),
-            elems=data,
-            fn_output_signature=tf.int32
-        )
+    def _get_gpu_histogram(self, data, nbins, min_val, max_val):
+        """
+        A GPU-compatible histogram replacement using one_hot.
+        Works with XLA and JIT compilation.
+        """
+        # Flatten data per batch item: (Batch, N)
+        batch_size = tf.shape(data)[0]
+        flattened = tf.reshape(data, [batch_size, -1])
+        
+        # Scale values to [0, nbins-1]
+        scaled_data = (flattened - min_val) / (max_val - min_val + 1e-7)
+        indices = tf.cast(scaled_data * tf.cast(nbins - 1, tf.float32), tf.int32)
+        indices = tf.clip_by_value(indices, 0, nbins - 1)
+        
+        # Count occurrences using reduce_sum on one_hot encoding
+        # This is the "secret sauce" for GPU histograms
+        oh = tf.one_hot(indices, depth=nbins) # (Batch, N, nbins)
+        hist = tf.reduce_sum(oh, axis=1)      # (Batch, nbins)
+        return hist
 
     def _get_lgop_features(self, channel):
-        # channel shape: (Batch, 224, 224)
         img_4d = tf.expand_dims(channel, -1)
         patches = tf.image.extract_patches(
             images=img_4d,
@@ -1363,41 +1373,35 @@ class LGONBPLayer(tf.keras.layers.Layer):
             rates=[1, 1, 1, 1],
             padding='SAME'
         )
-        # Neighbors (Equation 1, 2)
+        # Extract neighbors
         neighbors = tf.concat([patches[..., :4], patches[..., 5:]], axis=-1)
         
-        # Compute histogram per batch item
-        hist = self._get_batch_hists(neighbors, nbins=256, min_val=0.0, max_val=255.0)
-        return tf.cast(hist, tf.float32)
+        # Use GPU Histogram
+        return self._get_gpu_histogram(neighbors, nbins=256, min_val=0.0, max_val=255.0)
 
-    def _get_nlbp_features(self, channel):
-        # Global anchors logic (Equation 7, 8)
-        # Flatten spatial dimensions but keep batch: (Batch, 224*224)
+    def _get_nlbp_features(self, channel):        
         flat_channel = tf.reshape(channel, [tf.shape(channel)[0], -1])
         global_mean = tf.reduce_mean(flat_channel, axis=-1, keepdims=True)
         
-        # Center quantization (Equation 8)
+        # Center quantization
         center_quantized = tf.where(channel > tf.expand_dims(global_mean, -1), 1.0, 0.0)
         
-        hist = self._get_batch_hists(center_quantized, nbins=128, min_val=0.0, max_val=1.0)
-        return tf.cast(hist, tf.float32)
+        # Use GPU Histogram
+        return self._get_gpu_histogram(center_quantized, nbins=128, min_val=0.0, max_val=1.0)
 
     def call(self, inputs):
-        # Convert RGB to HSV
         hsv = tf.image.rgb_to_hsv(inputs)
         all_hists = []
         
-        for i in range(3): # Process H, S, V separately (Fig 2)
+        for i in range(3):
             channel = hsv[..., i]
             all_hists.append(self._get_lgop_features(channel))
             all_hists.append(self._get_nlbp_features(channel))
             
-        # Concatenate along the feature dimension (axis 1)
-        combined = tf.concat(all_hists, axis=1) # Results in (Batch, 1152)
+        combined = tf.concat(all_hists, axis=1) 
         return tf.nn.l2_normalize(combined, axis=1)
 
     def compute_output_shape(self, input_shape):
-        # Explicitly define output shape for the Dense layer to recognize
         return (input_shape[0], 1152)
 
 def build_lgonbp_dense_model(input_shape=(224, 224, 3)):
