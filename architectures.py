@@ -1434,6 +1434,22 @@ def build_lgonbp_dense_model(input_shape=(224, 224, 3)):
     return model
 
 
+def build_lgonbp_dense_model_v2(input_shape=(224, 224, 3)):
+    img_input = tf.keras.layers.Input(shape=input_shape)
+    
+    
+    lgonbp_features = LGONBPLayer()(img_input)
+    
+    x = tf.keras.layers.Dense(128, kernel_regularizer='l2')(lgonbp_features)
+    x = tf.keras.layers.BatchNormalization()(x)
+    x = tf.keras.layers.Activation('relu')(x)
+    
+    x = tf.keras.layers.Dropout(0.6)(x) 
+    output = tf.keras.layers.Dense(1, activation='sigmoid')(x)
+    model = tf.keras.models.Model(inputs=img_input, outputs=output)
+
+    return model
+
 
 """
 resnet50v2_hsv_rgb: A 6-channel input model (RGB+HSV) using a full ResNet50V2 backbone and standard Global Average Pooling (GAP).
