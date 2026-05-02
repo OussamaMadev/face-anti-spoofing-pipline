@@ -241,11 +241,11 @@ class DataLoaderPipeline:
             img = img + noise
 
         # 4. Zoom / Crop
-        zoom = self.aug_params.get("zoom_range", 0)
-        if zoom > 0:
+        zoom = self.aug_params.get("zoom_range", [1.0, 1.0]) # Example: [0.8, 1.0] for up to 20% zoom
+        if zoom != [1.0, 1.0]:
             original_shape = tf.shape(img)
             # Randomly pick a crop size between (1-zoom)% and 100%
-            crop_factor = tf.random.uniform([], 1.0 - zoom, 1.0)
+            crop_factor = tf.random.uniform([], zoom[0], zoom[1])
             crop_h = tf.cast(tf.cast(original_shape[0], tf.float32) * crop_factor, tf.int32)
             crop_w = tf.cast(tf.cast(original_shape[1], tf.float32) * crop_factor, tf.int32)
             img = tf.image.random_crop(img, size=[crop_h, crop_w, 3])
