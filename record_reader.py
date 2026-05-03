@@ -56,6 +56,33 @@ def plot_training_trends(json_path, record_index=0):
     plt.tight_layout()
     plt.show()
 
+def plot_training_trends_2(json_path, record_index=0):
+    with open(json_path, 'r') as f:
+        data = json.load(f)
+    
+    history = data['records'][record_index]['logs']['training_history']
+    epochs = range(1, len(history['loss']) + 1)
+
+    plt.figure(figsize=(12, 5))
+
+    # Plot Accuracy
+    plt.subplot(1, 2, 1)
+    plt.plot(epochs, history['accuracy'], label='Train Acc')
+    # plt.plot(epochs, history['val_accuracy'], label='Val Acc')
+    plt.title('Accuracy Trend')
+    plt.legend()
+
+    # Plot EER (The most important metric for Spoofing Detection)
+    plt.subplot(1, 2, 2)
+    plt.plot(epochs, history['loss'], label='loss', color='red')
+    plt.title('Loss Trend')
+    plt.xlabel('Epochs')
+    plt.ylabel('Loss')
+    plt.legend()
+
+    plt.tight_layout()
+    plt.show()
+
 
 def audit_experiment(json_path):
     with open(json_path, 'r') as f:
@@ -70,7 +97,7 @@ def audit_experiment(json_path):
             print("⚠️ WARNING: Training EER is constant 0.0. Check your EERCallback logic!")
         
         final_eer = record['logs']['final_test_metrics']['eer']
-        if final_eer < 0.20:
-            print(f"✅ EXCELLENT: Final EER ({final_eer:.2%}) is below the 20% threshold.")
+        if final_eer < 0.10:
+            print(f"✅ EXCELLENT: Final EER ({final_eer:.2%}) is below the 10% threshold.")
         else:
             print(f"ℹ️ NOTICE: Final EER is {final_eer:.2%}. Consider adjusting augmentation.")
