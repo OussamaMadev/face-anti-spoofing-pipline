@@ -177,6 +177,8 @@ class TrainingPipeline:
 
         all_subjects = [f"{i:02d}" for i in range(1, 51)]
         test_subs = all_subjects[20:]
+        test_subs_shuffled = np.random.permutation(test_subs)
+        
         global_training_subjects = all_subjects[:20]
         global_training_subjects_shuffled = np.random.permutation(global_training_subjects)
 
@@ -184,18 +186,21 @@ class TrainingPipeline:
         for i, cfg in enumerate(self.configs):
             
             validation_subjects_num = cfg["data_params"].get("validation_subjects_number", 0) 
-            get_random_subjects_for_validation = cfg["data_params"].get("get_random_subjects_for_validation", 0) == 1
+            randomize_validation_subjects = cfg["data_params"].get("get_random_subjects_for_validation", 0) == 1
+            is_val_from_test_set = cfg["data_params"].get("validation_subjects_from_test_set", 0) == 1
             
             if not validation_subjects_num : 
                 train_subs = global_training_subjects
                 val_subs = None
             else:
-                if get_random_subjects_for_validation:
-                    val_subs = global_training_subjects_shuffled[:validation_subjects_num]
-                    train_subs = global_training_subjects_shuffled[validation_subjects_num:]
+                if is_val_from_test_set:
+                    source_pool = test_subs_shuffled if randomize_validation_subjects else test_subs
+                    val_subs = source_pool[:validation_subjects_num]
+                    train_subs = global_training_subjects
                 else:
-                    val_subs = global_training_subjects[:validation_subjects_num]
-                    train_subs = global_training_subjects[validation_subjects_num:20]
+                    source_pool = global_training_subjects_shuffled if randomize_validation_subjects else global_training_subjects
+                    val_subs = source_pool[:validation_subjects_num]
+                    train_subs = source_pool[validation_subjects_num:]
 
             
             print(f"\n--- Running Sub-Experiment {i+1}/{len(self.configs)} ---")
