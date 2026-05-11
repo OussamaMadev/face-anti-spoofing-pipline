@@ -136,11 +136,30 @@ class TrainingPipeline:
         input_shape = tuple(d_params["input_size"]) 
         model = arch_fn(input_shape=input_shape)
 
+        initial_lr = t_params["learning_rate"]
+        lr_schedule = initial_lr  # Default to constant learning rate
+
+        if t_params.get("use_cosine_decay_restarts", 0) == 1:
+            first_decay_steps = t_params.get("first_decay_steps", 1000) # Number of steps in the first cycle (e.g., 5 or 10 epochs)
+            t_mul = t_params.get("t_mul", 2.0)              # Each cycle will be 2x longer than the previous one
+            m_mul = t_params.get("m_mul", 0.8)              # Each restart will start at 80% of the previous max LR
+            alpha = t_params.get("alpha", 0.001)            # Minimum LR as a fraction of initial_lr (eta_min)
+
+            # 2. Create the schedule
+            lr_schedule = tf.keras.optimizers.schedules.CosineDecayRestarts(
+                initial_learning_rate=initial_lr,
+                first_decay_steps=first_decay_steps,
+                t_mul=t_mul,
+                m_mul=m_mul,
+                alpha=alpha
+            )
+
+
         isAdamW = m_params.get("isAdamW", 0) == 1
         if isAdamW:
-            optimizer = tf.keras.optimizers.experimental.AdamW(learning_rate=t_params["learning_rate"])
+            optimizer = tf.keras.optimizers.experimental.AdamW(learning_rate=lr_schedule)
         else:
-            optimizer = tf.keras.optimizers.Adam(learning_rate=t_params["learning_rate"])
+            optimizer = tf.keras.optimizers.Adam(learning_rate=lr_schedule)
        
         # 4. Compile
         def eer(y_true, y_pred):
