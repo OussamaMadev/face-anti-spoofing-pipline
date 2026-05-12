@@ -42,7 +42,7 @@
                     "model_init_function": "init_model",
                     "architecture": "resNet50V2_FASD_RGB_V8_RandomErasing",
                     "parameters_count": 1797409,
-                    "note": null,
+                    "note": "experiment_096_20260510-122137_0_model_resNet50V2_FASD_RGB_V8_RandomErasing",
                     "label_smoothing": 0.05
                 },
                 "training_params": {
@@ -323,7 +323,7 @@
                     "model_init_function": "init_model",
                     "architecture": "resNet50V2_FASD_RGB_V8_RandomErasing",
                     "parameters_count": 1797409,
-                    "note": null
+                    "note": "experiment_096_20260510-122137_0_model_resNet50V2_FASD_RGB_V8_RandomErasing"
                 },
                 "training_params": {
                     "early_stopping_patience": 10,

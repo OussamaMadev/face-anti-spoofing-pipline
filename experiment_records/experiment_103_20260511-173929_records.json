@@ -42,7 +42,7 @@
                     "model_init_function": "init_model",
                     "architecture": "resNet50V2_FASD_RGB_V8_RandomErasing",
                     "parameters_count": 1797409,
-                    "note": null
+                    "note": "experiment_099_20260511-001033_2_model_resNet50V2_FASD_RGB_V8_RandomErasing"
                 },
                 "training_params": {
                     "early_stopping_patience": 15,

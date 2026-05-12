@@ -2,7 +2,7 @@
     "metadata": {
         "experiment_id": "experiment_100_20260511-013638",
         "status": "running",
-        "notes": " v8 rand erase with relu instead of swish and try to pus the 0.008 model further "
+        "notes": " v8 rand erase with relu instead of swish"
     },
     "records": [
         {
