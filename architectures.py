@@ -2520,7 +2520,7 @@ def init_resNet50V2_FASD_RGB_V8_10(input_shape=(224, 224, 3)):
     model = models.Model(inputs=img_input, outputs=output, name="resNet50V2_FASD_RGB_V8_aug2")
     return model
 
-def init_resNet50V2_FASD_RGB_V8_10(input_shape=(224, 224, 3)):
+def init_resNet50V2_FASD_RGB_V8_11(input_shape=(224, 224, 3)):
     img_input = layers.Input(shape=input_shape)
     
     # 1. Advanced Augmentation: Strictly prevents "cheating" on background edges
@@ -2582,7 +2582,7 @@ def init_resNet50V2_FASD_RGB_V8_10(input_shape=(224, 224, 3)):
     return model
 
 
-def init_resNet50V2_FASD_RGB_V8_11(input_shape=(224, 224, 3)):
+def init_resNet50V2_FASD_RGB_V8_12(input_shape=(224, 224, 3)):
     img_input = layers.Input(shape=input_shape)
     
     # 1. Advanced Augmentation: Strictly prevents "cheating" on background edges
@@ -2644,7 +2644,7 @@ def init_resNet50V2_FASD_RGB_V8_11(input_shape=(224, 224, 3)):
     model = models.Model(inputs=img_input, outputs=output, name="resNet50V2_FASD_RGB_V8_RandomErasing_SE_ratio8")
     return model
 
-def init_resNet50V2_FASD_RGB_V8_12(input_shape=(224, 224, 3)):
+def init_resNet50V2_FASD_RGB_V8_13(input_shape=(224, 224, 3)):
     img_input = layers.Input(shape=input_shape)
     
     # 1. Advanced Augmentation: Strictly prevents "cheating" on background edges
