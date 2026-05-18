@@ -91,10 +91,7 @@ class TrainingPipeline:
             
             if not "learning_rate" in cfg["training_params"] or cfg["training_params"]["learning_rate"] <= 0:
                 raise ValueError(f"Config {i} has invalid 'learning_rate': must be > 0.")
-            
-            if not "early_stopping_patience" in cfg["training_params"] or cfg["training_params"]["early_stopping_patience"] < 0:
-                raise ValueError(f"Config {i} has invalid 'early_stopping_patience': must be >= 0.")
-            
+                        
             model_init_function = cfg["model_params"].get("model_init_function", None)
             if not model_init_function or not callable(model_init_function):
                 raise ValueError(f"Config {i} has an invalid  model_init_function: '{model_init_function}' is not callable.")
