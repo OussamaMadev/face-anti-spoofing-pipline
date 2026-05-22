@@ -11,7 +11,7 @@ from sklearn.metrics import roc_curve
 from scipy.optimize import brentq
 from scipy.interpolate import interp1d
 
-
+from rich import print
 
 class TrainingPipeline:
     """
@@ -83,8 +83,8 @@ class TrainingPipeline:
             if not os.path.exists(dm):
                 raise ValueError(f"Config {i} has an invalid data map path: '{dm}' does not exist.")
                 
-            if not "initial_epochs" in cfg["training_params"] or (cfg["training_params"]["initial_epochs"] <= 0):
-                raise ValueError(f"Config {i} has invalid 'initial_epochs': must be > 0.")
+            if not "initial_epochs" in cfg["training_params"] or (cfg["training_params"]["initial_epochs"] < 0):
+                raise ValueError(f"Config {i} has invalid 'initial_epochs': must be a non-negative integer.")
             
             if not "batch_size" in cfg["data_params"] or cfg["data_params"]["batch_size"] <= 0:
                 raise ValueError(f"Config {i} has invalid 'batch_size': must be a positive integer.")
@@ -187,59 +187,104 @@ class TrainingPipeline:
         
         return model
 
+    def _get_subjects_for_split(self, cfg, test_subs, test_subs_shuffled, global_training_subjects, global_training_subjects_shuffled):
+        validation_subjects_num = cfg["data_params"].get("validation_subjects_number", 0) 
+        randomize_validation_subjects = cfg["data_params"].get("get_random_subjects_for_validation", 0) == 1
+        is_val_from_test_set = cfg["data_params"].get("validation_subjects_from_test_set", 0) == 1
+        
+        if not validation_subjects_num : 
+            train_subs = global_training_subjects
+            val_subs = None
+        else:
+            if is_val_from_test_set:
+                source_pool = test_subs_shuffled if randomize_validation_subjects else test_subs
+                val_subs = source_pool[:validation_subjects_num]
+                train_subs = global_training_subjects
+            else:
+                source_pool = global_training_subjects_shuffled if randomize_validation_subjects else global_training_subjects
+                val_subs = source_pool[:validation_subjects_num]
+                train_subs = source_pool[validation_subjects_num:]
+        
+        return train_subs, val_subs, validation_subjects_num
+    
+    def _generate_subject_ids(self):
+        all_subjects = [f"{i:02d}" for i in range(1, 51)]
+        test_subs = all_subjects[20:]
+        test_subs_shuffled = np.random.permutation(test_subs)
+        global_training_subjects = all_subjects[:20]
+        global_training_subjects_shuffled = np.random.permutation(global_training_subjects)
+        return test_subs, test_subs_shuffled, global_training_subjects, global_training_subjects_shuffled
+
+
+    def _get_callbacks(self, cfg, val_subs, validation_subjects_num, dlp, model_id):
+        callbacks = []
+        is_val_ds_balanced = cfg["data_params"].get("validation_dataset_baleance", 0) == 1
+        # If validation subjects are specified, create validation dataset and add custom EER logging callback
+        if validation_subjects_num :
+            val_ds = dlp.build_pipeline(val_subs, balanced=is_val_ds_balanced, augment=False, shuffle=False)
+            callbacks.append(ValidationEERLogger(val_ds))  # Custom callback for evaluation
+            monitor_metric = 'val_eer'
+        else:
+            # No validation dataset, so we monitor training loss for callbacks
+            monitor_metric = 'loss'
+            
+
+        # Early Stopping and ReduceLROnPlateau based on config
+        early_stopping_patience = cfg["training_params"].get("early_stopping_patience", None)
+        if early_stopping_patience is not None and early_stopping_patience >= 0:
+            callbacks.append(tf.keras.callbacks.EarlyStopping(monitor=monitor_metric, 
+                                                patience=early_stopping_patience, 
+                                                mode="min", 
+                                                restore_best_weights=True,
+                                                verbose=1))    
+
+        reduce_on_plateau_patience = cfg["training_params"].get("ReduceLROnPlateau_patience", None)
+        reduce_on_plateau_factor = cfg["training_params"].get("ReduceLROnPlateau_factor", None)
+        if reduce_on_plateau_patience is not None and reduce_on_plateau_factor is not None:
+            callbacks.append(tf.keras.callbacks.ReduceLROnPlateau(monitor=monitor_metric,
+                                                factor=reduce_on_plateau_factor,
+                                                patience=reduce_on_plateau_patience,
+                                                mode='min',
+                                                verbose=1))
+
+        
+        # Always save the best model based on the monitored metric
+        callbacks.append(tf.keras.callbacks.ModelCheckpoint(f"{self.models_output_path}/{model_id}", 
+                                                save_best_only=True, 
+                                                monitor=monitor_metric,
+                                                mode='min',
+                                                verbose=1))
+        return callbacks
+    
     def run(self):
         print(f"Starting Suite: {self.experiment_id}")
         self.master_record["metadata"]["status"] = "running"
 
-        all_subjects = [f"{i:02d}" for i in range(1, 51)]
-        test_subs = all_subjects[20:]
-        test_subs_shuffled = np.random.permutation(test_subs)
-        
-        global_training_subjects = all_subjects[:20]
-        global_training_subjects_shuffled = np.random.permutation(global_training_subjects)
-
-           
+        test_subs, test_subs_shuffled, global_training_subjects, global_training_subjects_shuffled = self._generate_subject_ids()
+   
         for i, cfg in enumerate(self.configs):
             
-            validation_subjects_num = cfg["data_params"].get("validation_subjects_number", 0) 
-            randomize_validation_subjects = cfg["data_params"].get("get_random_subjects_for_validation", 0) == 1
-            is_val_from_test_set = cfg["data_params"].get("validation_subjects_from_test_set", 0) == 1
-            
-            if not validation_subjects_num : 
-                train_subs = global_training_subjects
-                val_subs = None
-            else:
-                if is_val_from_test_set:
-                    source_pool = test_subs_shuffled if randomize_validation_subjects else test_subs
-                    val_subs = source_pool[:validation_subjects_num]
-                    train_subs = global_training_subjects
-                else:
-                    source_pool = global_training_subjects_shuffled if randomize_validation_subjects else global_training_subjects
-                    val_subs = source_pool[:validation_subjects_num]
-                    train_subs = source_pool[validation_subjects_num:]
+            train_subs, val_subs, validation_subjects_num = self._get_subjects_for_split(cfg, test_subs, test_subs_shuffled, global_training_subjects, global_training_subjects_shuffled)
 
-            
             print(f"\n--- Running Sub-Experiment {i+1}/{len(self.configs)} ---")
             print("Configuration:")
 
             model = self.init_model(cfg)
-            model_name = f"{self.experiment_id}_{i}_model_{model.name}.keras" 
-            model_path = f"{self.models_output_path}/{model_name}"
+            model_id = f"{self.experiment_id}_{i}_model_{model.name}.keras" 
             
             cfg['model_params']['parameters_count'] = model.count_params()
             cfg['model_params']['architecture'] = model.name
-            
             entry = {
                 "config": self._sanitize_config(cfg),
                 "logs": {
-                    "best_model_name": model_name
+                    "best_model_name": model_id
                 }
             }
             self.master_record["records"].append(entry)
             self._save_state()
+            
             print(cfg)
         
-            
             # Build data pipelines
             dlp = DataLoaderPipeline(
                 data_params=cfg['data_params'],
@@ -247,64 +292,24 @@ class TrainingPipeline:
                 augmentation_params=cfg['augmentation_params']
                 )
             
-            is_val_ds_balanced = cfg["data_params"].get("validation_dataset_baleance", 0) == 1
+            initial_epochs = cfg["training_params"].get("initial_epochs", 0)
+            if initial_epochs > 0:
+                train_ds = dlp.build_pipeline(train_subs, balanced=True, augment=True)
+                callbacks = self._get_callbacks(cfg, val_subs, validation_subjects_num, dlp, model_id)
+                history = model.fit(
+                    train_ds,
+                    # validation_data=val_ds,
+                    epochs=initial_epochs,
+                    verbose=2,
+                    callbacks=callbacks
+                )
+                self.master_record["records"][i]["logs"]["training_history"] = history.history
+                self.master_record["records"][i]["logs"]["epochs"] = len(history.history['loss'])
             
-            train_ds = dlp.build_pipeline(train_subs, balanced=True, augment=True)
 
-            
-            callbacks = []
-
-            # If validation subjects are specified, create validation dataset and add custom EER logging callback
-            if validation_subjects_num :
-                val_ds = dlp.build_pipeline(val_subs, balanced=is_val_ds_balanced, augment=False, shuffle=False)
-                callbacks.append(ValidationEERLogger(val_ds))  # Custom callback for evaluation
-                monitor_metric = 'val_eer'
-            else:
-                # No validation dataset, so we monitor training loss for callbacks
-                monitor_metric = 'loss'
-                
-
-            # Early Stopping and ReduceLROnPlateau based on config
-            early_stopping_patience = cfg["training_params"].get("early_stopping_patience", None)
-            if early_stopping_patience is not None and early_stopping_patience >= 0:
-                callbacks.append(tf.keras.callbacks.EarlyStopping(monitor=monitor_metric, 
-                                                    patience=early_stopping_patience, 
-                                                    mode="min", 
-                                                    restore_best_weights=True,
-                                                    verbose=1))    
-
-            reduce_on_plateau_patience = cfg["training_params"].get("ReduceLROnPlateau_patience", None)
-            reduce_on_plateau_factor = cfg["training_params"].get("ReduceLROnPlateau_factor", None)
-            if reduce_on_plateau_patience is not None and reduce_on_plateau_factor is not None:
-                callbacks.append(tf.keras.callbacks.ReduceLROnPlateau(monitor=monitor_metric,
-                                                    factor=reduce_on_plateau_factor,
-                                                    patience=reduce_on_plateau_patience,
-                                                    mode='min',
-                                                    verbose=1))
-
-            
-            # Always save the best model based on the monitored metric
-            callbacks.append(tf.keras.callbacks.ModelCheckpoint(model_path, 
-                                                    save_best_only=True, 
-                                                    monitor=monitor_metric,
-                                                    mode='min',
-                                                    verbose=1))
-
-            history = model.fit(
-                train_ds,
-                # validation_data=val_ds,
-                epochs=cfg["training_params"]["initial_epochs"],
-                verbose=2,
-                callbacks=callbacks
-            )
-            
             test_ds = dlp.build_pipeline(test_subs, balanced=False, augment=False, shuffle=False)           
             final_test_metrics = self.compute_metrics(test_ds, model)
             print(f"Final Test Metrics for Sub-Experiment {i+1}: {final_test_metrics}")
-            
-            # Update master record with training history and final test metrics
-            self.master_record["records"][i]["logs"]["training_history"] = history.history
-            self.master_record["records"][i]["logs"]["epochs"] = len(history.history['loss'])
             self.master_record["records"][i]["logs"]["final_test_metrics"] = final_test_metrics
 
         self.master_record["metadata"]["status"] = "completed"
