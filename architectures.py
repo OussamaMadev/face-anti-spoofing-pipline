@@ -3202,7 +3202,7 @@ def init_resNet50V2_FASD_RGB_V8_23(input_shape=(224, 224, 3)):
     model = tf.keras.Model(inputs=img_input, outputs=output, name="resNet50V2_FASD_RGB_V8_RandomErasing_c3b4")
     return model
 
-def init_resNet50V2_FASD_RGB_V8_10(input_shape=(224, 224, 3)):
+def init_resNet50V2_FASD_RGB_V10(input_shape=(224, 224, 3)):
     
     img_input = tf.keras.layers.Input(shape=input_shape)
     
