@@ -3207,9 +3207,9 @@ def init_resNet50V2_FASD_RGB_V8_10(input_shape=(224, 224, 3)):
     img_input = tf.keras.layers.Input(shape=input_shape)
     
     augmentation = tf.keras.Sequential([
-    tf.keras.layers.RandomErasing(factor=0.5, scale=(0.02, 1/3)),
+    tf.keras.layers.RandomBrightness(0.1, value_range=(0, 1)),
+    tf.keras.layers.RandomErasing(factor=0.5, scale=(0.02, 1/3), value_range=(0, 1)),
     tf.keras.layers.RandomRotation(0.05),
-    tf.keras.layers.RandomBrightness(0.1, value_range=(0, 1))
     ], name="data_augmentation")
     
     x = augmentation(img_input)
