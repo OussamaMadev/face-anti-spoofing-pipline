@@ -1,30 +1,29 @@
-from tensorflow.keras import layers, models
 import tensorflow as tf
 
 def SimpleCasiaNet(input_shape=(224, 224, 3)):
-  model = models.Sequential(name="SimpleCasiaNet")
+  model = tf.keras.models.Sequential(name="SimpleCasiaNet")
   
-  model.add(layers.Input(shape=input_shape))
+  model.add(tf.keras.layers.Input(shape=input_shape))
 
-  model.add(layers.Conv2D(32, (3, 3), activation='relu'))
-  model.add(layers.BatchNormalization())
-  model.add(layers.MaxPooling2D((2, 2)))
+  model.add(tf.keras.layers.Conv2D(32, (3, 3), activation='relu'))
+  model.add(tf.keras.layers.BatchNormalization())
+  model.add(tf.keras.layers.MaxPooling2D((2, 2)))
 
-  model.add(layers.Conv2D(64, (3, 3), activation='relu'))
-  model.add(layers.BatchNormalization())
-  model.add(layers.MaxPooling2D((2, 2)))
+  model.add(tf.keras.layers.Conv2D(64, (3, 3), activation='relu'))
+  model.add(tf.keras.layers.BatchNormalization())
+  model.add(tf.keras.layers.MaxPooling2D((2, 2)))
 
-  model.add(layers.Conv2D(128, (3, 3), activation='relu'))
-  model.add(layers.BatchNormalization())
-  model.add(layers.MaxPooling2D((2, 2)))
+  model.add(tf.keras.layers.Conv2D(128, (3, 3), activation='relu'))
+  model.add(tf.keras.layers.BatchNormalization())
+  model.add(tf.keras.layers.MaxPooling2D((2, 2)))
 
-  model.add(layers.Conv2D(224, (3, 3), activation='relu'))
-  model.add(layers.MaxPooling2D((2, 2)))
+  model.add(tf.keras.layers.Conv2D(224, (3, 3), activation='relu'))
+  model.add(tf.keras.layers.MaxPooling2D((2, 2)))
 
-  model.add(layers.Flatten())
-  model.add(layers.Dense(256, activation='relu'))
-  model.add(layers.Dropout(0.5))
-  model.add(layers.Dense(1, activation='sigmoid')) 
+  model.add(tf.keras.layers.Flatten())
+  model.add(tf.keras.layers.Dense(256, activation='relu'))
+  model.add(tf.keras.layers.Dropout(0.5))
+  model.add(tf.keras.layers.Dense(1, activation='sigmoid')) 
 
   return model
 
@@ -52,54 +51,54 @@ def mc_resnet_rgb_hsv(input_shape=(224, 224, 3)):
     """A more complex architecture that combines RGB and HSV color spaces for better spoofing detection.
     This model is designed to capture both color and texture cues that are crucial for distinguishing real faces from spoofs.
     It uses residual blocks for deeper feature extraction and an attention mechanism to focus on important regions of the face."""
-    input_rgb = layers.Input(shape=input_shape, name="input_rgb")
+    input_rgb = tf.keras.layers.Input(shape=input_shape, name="input_rgb")
     
     # 1. Color Space Transformations
-    input_hsv = layers.Lambda(lambda x: tf.image.rgb_to_hsv(x), name="rgb_to_hsv")(input_rgb)
+    input_hsv = tf.keras.layers.Lambda(lambda x: tf.image.rgb_to_hsv(x), name="rgb_to_hsv")(input_rgb)
     
     
     # 2. Multi-Channel Fusion with initial Noise Filtering
-    merged = layers.Concatenate(axis=-1)([input_rgb, input_hsv])
+    merged = tf.keras.layers.Concatenate(axis=-1)([input_rgb, input_hsv])
     
     # 3. Entry Block: Depthwise Separable to treat color channels independently first
-    x = layers.SeparableConv2D(64, (3, 3), padding='same', activation='relu')(merged)
-    x = layers.BatchNormalization()(x)
+    x = tf.keras.layers.SeparableConv2D(64, (3, 3), padding='same', activation='relu')(merged)
+    x = tf.keras.layers.BatchNormalization()(x)
     
     # 4. Residual Blocks (Better for deeper learning without vanishing gradients)
     def res_block(tensor, filters):
-        shortcut = layers.Conv2D(filters, (1, 1), padding='same')(tensor)
+        shortcut = tf.keras.layers.Conv2D(filters, (1, 1), padding='same')(tensor)
         
-        val = layers.Conv2D(filters, (3, 3), padding='same', activation='relu')(tensor)
-        val = layers.BatchNormalization()(val)
-        val = layers.Conv2D(filters, (3, 3), padding='same')(val)
-        val = layers.BatchNormalization()(val)
+        val = tf.keras.layers.Conv2D(filters, (3, 3), padding='same', activation='relu')(tensor)
+        val = tf.keras.layers.BatchNormalization()(val)
+        val = tf.keras.layers.Conv2D(filters, (3, 3), padding='same')(val)
+        val = tf.keras.layers.BatchNormalization()(val)
         
-        return layers.Add()([shortcut, val])
+        return tf.keras.layers.Add()([shortcut, val])
 
     x = res_block(x, 64)
-    x = layers.MaxPooling2D((2, 2))(x) # 112x112
+    x = tf.keras.layers.MaxPooling2D((2, 2))(x) # 112x112
     
     x = res_block(x, 128)
     # Simple Attention Mechanism: Focus on face texture, ignore background
-    attention = layers.Conv2D(1, (1, 1), activation='sigmoid')(x)
-    x = layers.Multiply()([x, attention])
-    x = layers.MaxPooling2D((2, 2))(x) # 56x56
+    attention = tf.keras.layers.Conv2D(1, (1, 1), activation='sigmoid')(x)
+    x = tf.keras.layers.Multiply()([x, attention])
+    x = tf.keras.layers.MaxPooling2D((2, 2))(x) # 56x56
     
     # 5. Spatial Pyramid Pooling (SPP) - Captures multi-scale spoofing cues
     # Useful for finding tiny screen pixels vs. large paper edges
-    pool1 = layers.GlobalAveragePooling2D()(x)
-    pool2 = layers.GlobalMaxPooling2D()(x)
+    pool1 = tf.keras.layers.GlobalAveragePooling2D()(x)
+    pool2 = tf.keras.layers.GlobalMaxPooling2D()(x)
     
-    x = layers.Concatenate()([pool1, pool2])
+    x = tf.keras.layers.Concatenate()([pool1, pool2])
     
     # 6. Dense Neck with stronger Regularization
-    x = layers.Dense(256, activation='relu', kernel_regularizer='l2')(x)
-    x = layers.Dropout(0.6)(x) # Higher dropout to prevent overfitting
-    x = layers.Dense(64, activation='relu')(x)
+    x = tf.keras.layers.Dense(256, activation='relu', kernel_regularizer='l2')(x)
+    x = tf.keras.layers.Dropout(0.6)(x) # Higher dropout to prevent overfitting
+    x = tf.keras.layers.Dense(64, activation='relu')(x)
     
-    output = layers.Dense(1, activation='sigmoid', name="classifier")(x)
+    output = tf.keras.layers.Dense(1, activation='sigmoid', name="classifier")(x)
     
-    return models.Model(inputs=input_rgb, outputs=output, name = "MC-ResNet-RGB-HSV")
+    return tf.keras.Model(inputs=input_rgb, outputs=output, name = "MC-ResNet-RGB-HSV")
 
 
 def build_mc_cdcn_model(input_shape=(224, 224, 3), theta=0.7):
@@ -109,11 +108,11 @@ def build_mc_cdcn_model(input_shape=(224, 224, 3), theta=0.7):
     """
 
     # --- Custom CDC Layer inside the function for portability ---
-    class CDC2D(layers.Layer):
+    class CDC2D(tf.keras.layers.Layer):
         def __init__(self, filters, kernel_size=3, theta=0.7, **kwargs):
             super().__init__(**kwargs)
             self.filters, self.kernel_size, self.theta = filters, kernel_size, theta
-            self.conv = layers.Conv2D(filters, kernel_size, padding='same', use_bias=False)
+            self.conv = tf.keras.layers.Conv2D(filters, kernel_size, padding='same', use_bias=False)
         def call(self, x):
             out_normal = self.conv(x)
             kernel_sum = tf.reduce_sum(self.conv.kernel, axis=(0, 1))
@@ -123,66 +122,66 @@ def build_mc_cdcn_model(input_shape=(224, 224, 3), theta=0.7):
             return {**super().get_config(), "filters": self.filters, "kernel_size": self.kernel_size, "theta": self.theta}
 
     # --- 1. Inputs & Multi-Chromatic Fusion ---
-    input_rgb = layers.Input(shape=input_shape, name="input_rgb")
+    input_rgb = tf.keras.layers.Input(shape=input_shape, name="input_rgb")
 
     # Normalize and transform color spaces
     # Note: Assumes input is [0, 255], scales to [0, 1] for transformations
-    x_norm = layers.Rescaling(1./255)(input_rgb)
-    input_hsv = layers.Lambda(lambda x: tf.image.rgb_to_hsv(x), name="hsv_transform")(x_norm)
-    input_ycbcr = layers.Lambda(lambda x: tf.image.rgb_to_yuv(x), name="ycbcr_transform")(x_norm)
+    x_norm = tf.keras.layers.Rescaling(1./255)(input_rgb)
+    input_hsv = tf.keras.layers.Lambda(lambda x: tf.image.rgb_to_hsv(x), name="hsv_transform")(x_norm)
+    input_ycbcr = tf.keras.layers.Lambda(lambda x: tf.image.rgb_to_yuv(x), name="ycbcr_transform")(x_norm)
 
-    merged = layers.Concatenate(axis=-1, name="9_channel_fusion")([x_norm, input_hsv, input_ycbcr])
+    merged = tf.keras.layers.Concatenate(axis=-1, name="9_channel_fusion")([x_norm, input_hsv, input_ycbcr])
 
     # --- 2. Feature Extraction Blocks (CDC + Residual) ---
     def cdc_res_block(x, filters, stride=1):
-        shortcut = layers.Conv2D(filters, (1, 1), strides=stride, padding='same')(x)
+        shortcut = tf.keras.layers.Conv2D(filters, (1, 1), strides=stride, padding='same')(x)
 
         # Branch with Central Difference
         val = CDC2D(filters, theta=theta)(x)
-        val = layers.BatchNormalization()(val)
-        val = layers.Activation('relu')(val)
-        if stride > 1: val = layers.MaxPooling2D((stride, stride))(val)
+        val = tf.keras.layers.BatchNormalization()(val)
+        val = tf.keras.layers.Activation('relu')(val)
+        if stride > 1: val = tf.keras.layers.MaxPooling2D((stride, stride))(val)
 
-        val = layers.Conv2D(filters, (3, 3), padding='same')(val)
-        val = layers.BatchNormalization()(val)
+        val = tf.keras.layers.Conv2D(filters, (3, 3), padding='same')(val)
+        val = tf.keras.layers.BatchNormalization()(val)
 
-        return layers.Add()([shortcut, val])
+        return tf.keras.layers.Add()([shortcut, val])
 
     # Block 1: Initial texture extraction
     x = cdc_res_block(merged, 64)
-    x = layers.MaxPooling2D((2, 2))(x) # 112x112
+    x = tf.keras.layers.MaxPooling2D((2, 2))(x) # 112x112
 
     # Block 2: Middle-level features with Spatial Attention
     x = cdc_res_block(x, 128)
-    attn = layers.Conv2D(1, (1, 1), activation='sigmoid')(x)
-    x = layers.Multiply()([x, attn])
-    x = layers.MaxPooling2D((2, 2))(x) # 56x56
+    attn = tf.keras.layers.Conv2D(1, (1, 1), activation='sigmoid')(x)
+    x = tf.keras.layers.Multiply()([x, attn])
+    x = tf.keras.layers.MaxPooling2D((2, 2))(x) # 56x56
 
     # Block 3: High-level semantics
     x = cdc_res_block(x, 256)
 
     # --- 3. Global Head ---
     # Combine Average and Max pooling to catch both global structure and local "glints"
-    gap = layers.GlobalAveragePooling2D()(x)
-    gmp = layers.GlobalMaxPooling2D()(x)
-    combined = layers.Concatenate()([gap, gmp])
+    gap = tf.keras.layers.GlobalAveragePooling2D()(x)
+    gmp = tf.keras.layers.GlobalMaxPooling2D()(x)
+    combined = tf.keras.layers.Concatenate()([gap, gmp])
 
-    x = layers.Dense(128, activation='relu', kernel_regularizer='l2')(combined)
-    x = layers.Dropout(0.5)(x)
-    output = layers.Dense(1, activation='sigmoid', name="classifier")(x)
+    x = tf.keras.layers.Dense(128, activation='relu', kernel_regularizer='l2')(combined)
+    x = tf.keras.layers.Dropout(0.5)(x)
+    output = tf.keras.layers.Dense(1, activation='sigmoid', name="classifier")(x)
 
-    return models.Model(inputs=input_rgb, outputs=output, name="MC_CDCN")
+    return tf.keras.Model(inputs=input_rgb, outputs=output, name="MC_CDCN")
 
 
 def hs_ConvNeXtTiny(input_shape=(224, 224, 3)):
-    img_input = layers.Input(shape=input_shape)
+    img_input = tf.keras.layers.Input(shape=input_shape)
     
     # Preprocessing: RGB -> HSV -> Extract H & S
-    hsv = layers.Lambda(lambda x: tf.image.rgb_to_hsv(x))(img_input)
-    hs = layers.Lambda(lambda x: x[:, :, :, 0:2])(hsv)
+    hsv = tf.keras.layers.Lambda(lambda x: tf.image.rgb_to_hsv(x))(img_input)
+    hs = tf.keras.layers.Lambda(lambda x: x[:, :, :, 0:2])(hsv)
     
     # Expand 2 channels to 3 for ConvNeXt compatibility
-    x = layers.Conv2D(3, (1, 1), padding='same')(hs)
+    x = tf.keras.layers.Conv2D(3, (1, 1), padding='same')(hs)
     
     base_model = tf.keras.applications.ConvNeXtTiny(
         include_top=False, 
@@ -191,17 +190,17 @@ def hs_ConvNeXtTiny(input_shape=(224, 224, 3)):
     )
     
     # Global Head
-    x = layers.GlobalAveragePooling2D()(base_model.output)
-    output = layers.Dense(1, activation='sigmoid', dtype='float32')(x)
+    x = tf.keras.layers.GlobalAveragePooling2D()(base_model.output)
+    output = tf.keras.layers.Dense(1, activation='sigmoid', dtype='float32')(x)
     
-    return models.Model(img_input, output, name="hs_ConvNeXtTiny")
+    return tf.keras.Model(img_input, output, name="hs_ConvNeXtTiny")
 
 
 def hsv_ConvNeXtTiny(input_shape=(224, 224, 3)):
-    img_input = layers.Input(shape=input_shape)
+    img_input = tf.keras.layers.Input(shape=input_shape)
     
     # Preprocessing: RGB -> HSV
-    hsv = layers.Lambda(lambda x: tf.image.rgb_to_hsv(x))(img_input)
+    hsv = tf.keras.layers.Lambda(lambda x: tf.image.rgb_to_hsv(x))(img_input)
     
     base_model = tf.keras.applications.ConvNeXtTiny(
         include_top=False, 
@@ -209,10 +208,10 @@ def hsv_ConvNeXtTiny(input_shape=(224, 224, 3)):
         input_tensor=hsv
     )
     
-    x = layers.GlobalAveragePooling2D()(base_model.output)
-    output = layers.Dense(1, activation='sigmoid', dtype='float32')(x)
+    x = tf.keras.layers.GlobalAveragePooling2D()(base_model.output)
+    output = tf.keras.layers.Dense(1, activation='sigmoid', dtype='float32')(x)
     
-    return models.Model(img_input, output, name="hsv_ConvNeXtTiny")
+    return tf.keras.Model(img_input, output, name="hsv_ConvNeXtTiny")
 
 
 
@@ -248,22 +247,22 @@ def get_lbp_gpu(image_channel):
 
 def HS_LBP_ConvNeXt(input_shape=(224, 224, 3)):
     # 1. Input: Raw RGB
-    rgb_input = layers.Input(shape=input_shape, name="input_rgb")
+    rgb_input = tf.keras.layers.Input(shape=input_shape, name="input_rgb")
     
     # 2. Preprocessing Stream (RGB -> HSV)
     # Using 0-1 range for internal calculations
-    hsv = layers.Lambda(lambda x: tf.image.rgb_to_hsv(x), name="hsv_transform")(rgb_input)
+    hsv = tf.keras.layers.Lambda(lambda x: tf.image.rgb_to_hsv(x), name="hsv_transform")(rgb_input)
     
-    h = layers.Lambda(lambda x: x[:, :, :, 0:1], name="hue_channel")(hsv)
-    s = layers.Lambda(lambda x: x[:, :, :, 1:2], name="saturation_channel")(hsv)
-    v = layers.Lambda(lambda x: x[:, :, :, 2:3], name="value_channel")(hsv)
+    h = tf.keras.layers.Lambda(lambda x: x[:, :, :, 0:1], name="hue_channel")(hsv)
+    s = tf.keras.layers.Lambda(lambda x: x[:, :, :, 1:2], name="saturation_channel")(hsv)
+    v = tf.keras.layers.Lambda(lambda x: x[:, :, :, 2:3], name="value_channel")(hsv)
     
     # 3. Feature Engineering: Extract LBP from Value channel
-    lbp_v = layers.Lambda(get_lbp_gpu, name="lbp_texture_extraction")(v)
+    lbp_v = tf.keras.layers.Lambda(get_lbp_gpu, name="lbp_texture_extraction")(v)
     
     # 4. Feature Fusion: Stack [H, S, LBP(V)] as a 3-channel input
     # This allows us to use ImageNet-pretrained weights on the backbone
-    fused_input = layers.Concatenate(axis=-1, name="spectral_texture_fusion")([h, s, lbp_v])
+    fused_input = tf.keras.layers.Concatenate(axis=-1, name="spectral_texture_fusion")([h, s, lbp_v])
     
     # 5. Backbone: ConvNeXt Tiny
     base_model = tf.keras.applications.ConvNeXtTiny(
@@ -274,22 +273,22 @@ def HS_LBP_ConvNeXt(input_shape=(224, 224, 3)):
     
     # 6. Global Head (Optimized for Binary Classification)
     x = base_model.output
-    x = layers.GlobalAveragePooling2D()(x)
-    x = layers.BatchNormalization()(x)
-    x = layers.Dense(512, activation='relu')(x)
-    x = layers.Dropout(0.5)(x) # Robustness against overfitting
+    x = tf.keras.layers.GlobalAveragePooling2D()(x)
+    x = tf.keras.layers.BatchNormalization()(x)
+    x = tf.keras.layers.Dense(512, activation='relu')(x)
+    x = tf.keras.layers.Dropout(0.5)(x) # Robustness against overfitting
     
     # Sigmoid Output: 0 = Spoof, 1 = Real
-    outputs = layers.Dense(1, activation='sigmoid', dtype='float32', name="classification")(x)
+    outputs = tf.keras.layers.Dense(1, activation='sigmoid', dtype='float32', name="classification")(x)
     
-    model = models.Model(rgb_input, outputs, name="HS_LBP_ConvNeXt")
+    model = tf.keras.Model(rgb_input, outputs, name="HS_LBP_ConvNeXt")
     
     return model
 
 
 def build_gram_net(input_shape=(224, 224, 3)):
 # --- 1. Define the Custom Gram Layer ---
-    class GramMatrixLayer(layers.Layer):
+    class GramMatrixLayer(tf.keras.layers.Layer):
         def __init__(self, **kwargs):
             super(GramMatrixLayer, self).__init__(**kwargs)
 
@@ -303,7 +302,7 @@ def build_gram_net(input_shape=(224, 224, 3)):
             return tf.reshape(gram, (b, c * c))
 
     # --- 2. Create the Architecture ---
-    img_input = layers.Input(shape=input_shape, name="input_img")
+    img_input = tf.keras.layers.Input(shape=input_shape, name="input_img")
     
     # Pre-trained Backbone
     base = tf.keras.applications.MobileNetV3Small(
@@ -320,7 +319,7 @@ def build_gram_net(input_shape=(224, 224, 3)):
     # Now we extract internal outputs from the base model
     # To ensure they are connected to img_input, we use the Model API to get intermediate tensors
     # Stage indices for MobileNetV3Small: 13 (low), 36 (mid), 142 (high)
-    extractor = models.Model(
+    extractor = tf.keras.Model(
         inputs=base.input, 
         outputs=[base.layers[13].output, base.layers[36].output, base.layers[142].output]
     )
@@ -331,13 +330,13 @@ def build_gram_net(input_shape=(224, 224, 3)):
     # --- 3. Texture Extraction Logic ---
     def process_stage(feat, filters, name):
         # 1x1 Conv to reduce channels (keeps params low)
-        x = layers.Conv2D(filters, (1, 1), padding='same', use_bias=False)(feat)
-        x = layers.BatchNormalization()(x)
-        x = layers.Activation('relu')(x)
+        x = tf.keras.layers.Conv2D(filters, (1, 1), padding='same', use_bias=False)(feat)
+        x = tf.keras.layers.BatchNormalization()(x)
+        x = tf.keras.layers.Activation('relu')(x)
         # Gram Texture
         gram = GramMatrixLayer(name=f"gram_{name}")(x)
         # Spatial Structure
-        gap = layers.GlobalAveragePooling2D(name=f"gap_{name}")(feat)
+        gap = tf.keras.layers.GlobalAveragePooling2D(name=f"gap_{name}")(feat)
         return gram, gap
 
     g1, p1 = process_stage(feat_low, 32, "low")
@@ -345,14 +344,14 @@ def build_gram_net(input_shape=(224, 224, 3)):
     g3, p3 = process_stage(feat_high, 32, "high")
 
     # --- 4. Fusion and Head ---
-    fused = layers.Concatenate(name="global_fusion")([g1, p1, g2, p2, g3, p3])
+    fused = tf.keras.layers.Concatenate(name="global_fusion")([g1, p1, g2, p2, g3, p3])
     
-    x = layers.Dense(512, activation='relu')(fused)
-    x = layers.BatchNormalization()(x)
-    x = layers.Dropout(0.4)(x)
-    output = layers.Dense(1, activation='sigmoid', name="decision")(x)
+    x = tf.keras.layers.Dense(512, activation='relu')(fused)
+    x = tf.keras.layers.BatchNormalization()(x)
+    x = tf.keras.layers.Dropout(0.4)(x)
+    output = tf.keras.layers.Dense(1, activation='sigmoid', name="decision")(x)
 
-    model = models.Model(inputs=img_input, outputs=output, name="GramNet_ResNet")
+    model = tf.keras.Model(inputs=img_input, outputs=output, name="GramNet_ResNet")
     
     return model
 
@@ -380,10 +379,10 @@ def resnet_50v2(input_shape=(224, 224, 3)):
 
 def build_resnet50v2_hsv(input_shape=(224, 224, 6)):
 
-    img_input = layers.Input(shape=input_shape)
+    img_input = tf.keras.layers.Input(shape=input_shape)
     
     
-    hsv = layers.Lambda(lambda x: tf.image.rgb_to_hsv(x))(img_input)
+    hsv = tf.keras.layers.Lambda(lambda x: tf.image.rgb_to_hsv(x))(img_input)
 
     base_model = tf.keras.applications.ResNet50V2(
         input_tensor=hsv,
@@ -407,15 +406,15 @@ def build_resnet50v2_9channel(input_shape=(224, 224, 3)):
     Focuses on chromaticity and luminance gradients for anti-spoofing.
     """
     # 1. Define the original 3-channel RGB input
-    img_input = layers.Input(shape=input_shape, name="input_rgb")
+    img_input = tf.keras.layers.Input(shape=input_shape, name="input_rgb")
     
     # 2. Color Space Transformations (Assuming input is normalized [0, 1])
-    hsv = layers.Lambda(lambda x: tf.image.rgb_to_hsv(x), name="hsv_stream")(img_input)
+    hsv = tf.keras.layers.Lambda(lambda x: tf.image.rgb_to_hsv(x), name="hsv_stream")(img_input)
     # Note: tf.image.rgb_to_yuv is the standard TF implementation for YCbCr-like logic
-    ycbcr = layers.Lambda(lambda x: tf.image.rgb_to_yuv(x), name="ycbcr_stream")(img_input)
+    ycbcr = tf.keras.layers.Lambda(lambda x: tf.image.rgb_to_yuv(x), name="ycbcr_stream")(img_input)
 
     # 3. Concatenate to 9 Channels
-    merged = layers.Concatenate(axis=-1, name="9_channel_fusion")([img_input, hsv, ycbcr])
+    merged = tf.keras.layers.Concatenate(axis=-1, name="9_channel_fusion")([img_input, hsv, ycbcr])
 
     # 4. Initialize ResNet50V2 with the 9-channel tensor
     # weights=None is mandatory as ImageNet weights only support 3 channels
@@ -427,21 +426,21 @@ def build_resnet50v2_9channel(input_shape=(224, 224, 3)):
     
     # 5. Global Head
     x = base_model.output
-    x = layers.GlobalAveragePooling2D()(x)
-    x = layers.Dropout(0.4)(x) # Increased dropout for better generalization
+    x = tf.keras.layers.GlobalAveragePooling2D()(x)
+    x = tf.keras.layers.Dropout(0.4)(x) # Increased dropout for better generalization
     
-    output = layers.Dense(1, activation='sigmoid', name="classifier")(x)
+    output = tf.keras.layers.Dense(1, activation='sigmoid', name="classifier")(x)
     
-    model = models.Model(inputs=img_input, outputs=output, name="ResNet50V2_9Ch")
+    model = tf.keras.Model(inputs=img_input, outputs=output, name="ResNet50V2_9Ch")
     return model
 
 def build_improved_resnet50v2_multichannel(input_shape=(224, 224, 3)):
-    img_input = layers.Input(shape=input_shape)
+    img_input = tf.keras.layers.Input(shape=input_shape)
     
     # 1. Internal Multi-Chromatic Expansion (Ensure 0-1 range)
-    hsv = layers.Lambda(lambda x: tf.image.rgb_to_hsv(x))(img_input)
-    ycbcr = layers.Lambda(lambda x: tf.image.rgb_to_yuv(x))(img_input)
-    combined_input = layers.Concatenate(axis=-1)([img_input, hsv, ycbcr])
+    hsv = tf.keras.layers.Lambda(lambda x: tf.image.rgb_to_hsv(x))(img_input)
+    ycbcr = tf.keras.layers.Lambda(lambda x: tf.image.rgb_to_yuv(x))(img_input)
+    combined_input = tf.keras.layers.Concatenate(axis=-1)([img_input, hsv, ycbcr])
 
     # 2. Backbone with Intermediate Extractions
     base = tf.keras.applications.ResNet50V2(
@@ -455,27 +454,27 @@ def build_improved_resnet50v2_multichannel(input_shape=(224, 224, 3)):
     feat_final = base.output
     
     # 3. Multi-Scale Pooling
-    p1 = layers.GlobalAveragePooling2D()(feat_mid)
-    p2 = layers.GlobalAveragePooling2D()(feat_final)
-    p3 = layers.GlobalMaxPooling2D()(feat_final) # Capture sharp glints/pixels
+    p1 = tf.keras.layers.GlobalAveragePooling2D()(feat_mid)
+    p2 = tf.keras.layers.GlobalAveragePooling2D()(feat_final)
+    p3 = tf.keras.layers.GlobalMaxPooling2D()(feat_final) # Capture sharp glints/pixels
     
-    merged = layers.Concatenate()([p1, p2, p3])
+    merged = tf.keras.layers.Concatenate()([p1, p2, p3])
     
     # 4. Dense Head with Heavy Regularization
-    x = layers.Dense(512, activation='relu', kernel_regularizer='l2')(merged)
-    x = layers.BatchNormalization()(x)
-    x = layers.Dropout(0.5)(x) # Aggressive dropout to bridge the gap
+    x = tf.keras.layers.Dense(512, activation='relu', kernel_regularizer='l2')(merged)
+    x = tf.keras.layers.BatchNormalization()(x)
+    x = tf.keras.layers.Dropout(0.5)(x) # Aggressive dropout to bridge the gap
     
-    output = layers.Dense(1, activation='sigmoid')(x)
+    output = tf.keras.layers.Dense(1, activation='sigmoid')(x)
     
-    return models.Model(inputs=img_input, outputs=output)
+    return tf.keras.models.Model(inputs=img_input, outputs=output)
 
 def build_improved_resnet50v2_multichannel_v2(input_shape=(224, 224, 3)):
-    img_input = layers.Input(shape=input_shape)
+    img_input = tf.keras.layers.Input(shape=input_shape)
     
     # 1. Internal Multi-Chromatic Expansion (Ensure 0-1 range)
-    hsv = layers.Lambda(lambda x: tf.image.rgb_to_hsv(x))(img_input)
-    combined_input = layers.Concatenate(axis=-1)([img_input, hsv])
+    hsv = tf.keras.layers.Lambda(lambda x: tf.image.rgb_to_hsv(x))(img_input)
+    combined_input = tf.keras.layers.Concatenate(axis=-1)([img_input, hsv])
 
     # 2. Backbone with Intermediate Extractions
     base = tf.keras.applications.ResNet50V2(
@@ -489,28 +488,28 @@ def build_improved_resnet50v2_multichannel_v2(input_shape=(224, 224, 3)):
     feat_final = base.output
     
     # 3. Multi-Scale Pooling
-    p1 = layers.GlobalAveragePooling2D()(feat_mid)
-    p2 = layers.GlobalAveragePooling2D()(feat_final)
-    p3 = layers.GlobalMaxPooling2D()(feat_final) # Capture sharp glints/pixels
+    p1 = tf.keras.layers.GlobalAveragePooling2D()(feat_mid)
+    p2 = tf.keras.layers.GlobalAveragePooling2D()(feat_final)
+    p3 = tf.keras.layers.GlobalMaxPooling2D()(feat_final) # Capture sharp glints/pixels
     
-    merged = layers.Concatenate()([p1, p2, p3])
+    merged = tf.keras.layers.Concatenate()([p1, p2, p3])
     
     # 4. Dense Head with Heavy Regularization
-    x = layers.Dense(512, activation='relu', kernel_regularizer='l2')(merged)
-    x = layers.BatchNormalization()(x)
-    x = layers.Dropout(0.5)(x) # Aggressive dropout to bridge the gap
+    x = tf.keras.layers.Dense(512, activation='relu', kernel_regularizer='l2')(merged)
+    x = tf.keras.layers.BatchNormalization()(x)
+    x = tf.keras.layers.Dropout(0.5)(x) # Aggressive dropout to bridge the gap
     
-    output = layers.Dense(1, activation='sigmoid')(x)
+    output = tf.keras.layers.Dense(1, activation='sigmoid')(x)
     
-    return models.Model(inputs=img_input, outputs=output, name="Improved_ResNet50V2_MultiChannel_RGB_HSV")
+    return tf.keras.models.Model(inputs=img_input, outputs=output, name="Improved_ResNet50V2_MultiChannel_RGB_HSV")
 
 def build_resnet50v2_hsv_rgb_yuv(input_shape=(224, 224, 3)):
 
-    img_input = layers.Input(shape=input_shape)
-    hsv = layers.Lambda(lambda x: tf.image.rgb_to_hsv(x))(img_input)
-    yuv = layers.Lambda(lambda x: tf.image.rgb_to_yuv(x))(img_input)
+    img_input = tf.keras.layers.Input(shape=input_shape)
+    hsv = tf.keras.layers.Lambda(lambda x: tf.image.rgb_to_hsv(x))(img_input)
+    yuv = tf.keras.layers.Lambda(lambda x: tf.image.rgb_to_yuv(x))(img_input)
 
-    combined = layers.Concatenate(axis=-1)([img_input, hsv, yuv])
+    combined = tf.keras.layers.Concatenate(axis=-1)([img_input, hsv, yuv])
 
     base_model = tf.keras.applications.ResNet50V2(
         input_tensor=combined,
@@ -527,13 +526,13 @@ def build_resnet50v2_hsv_rgb_yuv(input_shape=(224, 224, 3)):
 
 
 def build_resnet50v2_hsv_rgb_v2(input_shape=(224, 224, 3)):
-    img_input = layers.Input(shape=input_shape)
+    img_input = tf.keras.layers.Input(shape=input_shape)
     
     # 1. 9-Channel Input Expansion (RGB + HSV + YUV)
     # Ensure images are float32 [0, 1] to avoid EagerTensor uint8 errors
-    hsv = layers.Lambda(lambda x: tf.image.rgb_to_hsv(x))(img_input)
+    hsv = tf.keras.layers.Lambda(lambda x: tf.image.rgb_to_hsv(x))(img_input)
     
-    combined = layers.Concatenate(axis=-1)([img_input, hsv])
+    combined = tf.keras.layers.Concatenate(axis=-1)([img_input, hsv])
 
     # 2. ResNet Backbone
     base_model = tf.keras.applications.ResNet50V2(
@@ -545,33 +544,33 @@ def build_resnet50v2_hsv_rgb_v2(input_shape=(224, 224, 3)):
 
     # 3. Dimensional Alignment (Global Pooling)
     # Get the global statistics of the 9-channel input (Mean color, mean YUV)
-    combined_pooled = layers.GlobalAveragePooling2D()(combined)
+    combined_pooled = tf.keras.layers.GlobalAveragePooling2D()(combined)
     # Get the global deep features
-    res_pooled = layers.GlobalAveragePooling2D()(res_out)
+    res_pooled = tf.keras.layers.GlobalAveragePooling2D()(res_out)
     
     # 4. Concatenation
     # Now both are vectors, so they can be merged
-    merged = layers.Concatenate()([combined_pooled, res_pooled])
+    merged = tf.keras.layers.Concatenate()([combined_pooled, res_pooled])
     
     # 5. Dense Classifier Head
-    x = layers.Dense(512, activation='relu')(merged)
-    x = layers.BatchNormalization()(x)
-    x = layers.Dropout(0.5)(x)
+    x = tf.keras.layers.Dense(512, activation='relu')(merged)
+    x = tf.keras.layers.BatchNormalization()(x)
+    x = tf.keras.layers.Dropout(0.5)(x)
     
     # Using 1 dense layer for output as per your intent
-    output = layers.Dense(1, activation='sigmoid', name="pad_output")(x)
+    output = tf.keras.layers.Dense(1, activation='sigmoid', name="pad_output")(x)
 
-    model = models.Model(inputs=img_input, outputs=output, name="resNet50V2_FASD_HSV_RGB_V2")
+    model = tf.keras.models.Model(inputs=img_input, outputs=output, name="resNet50V2_FASD_HSV_RGB_V2")
     return model
 
 def build_resnet50v2_hsv_rgb_v3(input_shape=(224, 224, 3)):
-    img_input = layers.Input(shape=input_shape)
+    img_input = tf.keras.layers.Input(shape=input_shape)
     
     # 1. 9-Channel Input Expansion (RGB + HSV + YUV)
     # Ensure images are float32 [0, 1] to avoid EagerTensor uint8 errors
-    hsv = layers.Lambda(lambda x: tf.image.rgb_to_hsv(x))(img_input)
+    hsv = tf.keras.layers.Lambda(lambda x: tf.image.rgb_to_hsv(x))(img_input)
     
-    combined = layers.Concatenate(axis=-1)([img_input, hsv])
+    combined = tf.keras.layers.Concatenate(axis=-1)([img_input, hsv])
 
     # 2. ResNet Backbone
     base_model = tf.keras.applications.ResNet50V2(
@@ -581,51 +580,51 @@ def build_resnet50v2_hsv_rgb_v3(input_shape=(224, 224, 3)):
     )
     res_out = base_model.output
 
-    a = layers.conv3d()(res_out)
-    b = layers.conv3d()(combined)
+    a = tf.keras.layers.Conv3D(64, (3, 3, 3), activation='relu')(res_out)
+    b = tf.keras.layers.Conv3D(64, (3, 3, 3), activation='relu')(combined)
     
 
     
-    combined_pooled = layers.GlobalAveragePooling2D()(combined)
+    combined_pooled = tf.keras.layers.GlobalAveragePooling2D()(combined)
     # Get the global deep features
-    res_pooled = layers.GlobalAveragePooling2D()(res_out)
+    res_pooled = tf.keras.layers.GlobalAveragePooling2D()(res_out)
     
     # 4. Concatenation
     # Now both are vectors, so they can be merged
-    merged = layers.Concatenate()([combined_pooled, res_pooled])
+    merged = tf.keras.layers.Concatenate()([combined_pooled, res_pooled])
     
     # 5. Dense Classifier Head
-    x = layers.Dense(512, activation='relu')(merged)
-    x = layers.BatchNormalization()(x)
-    x = layers.Dropout(0.5)(x)
+    x = tf.keras.layers.Dense(512, activation='relu')(merged)
+    x = tf.keras.layers.BatchNormalization()(x)
+    x = tf.keras.layers.Dropout(0.5)(x)
     
     # Using 1 dense layer for output as per your intent
-    output = layers.Dense(1, activation='sigmoid', name="pad_output")(x)
+    output = tf.keras.layers.Dense(1, activation='sigmoid', name="pad_output")(x)
 
-    model = models.Model(inputs=img_input, outputs=output, name="resNet50V2_FASD_HSV_RGB_V3")
+    model = tf.keras.models.Model(inputs=img_input, outputs=output, name="resNet50V2_FASD_HSV_RGB_V3")
     return model
 
 def build_resnet50v2_texture_fusion(input_shape=(224, 224, 3)):
-    img_input = layers.Input(shape=input_shape)
+    img_input = tf.keras.layers.Input(shape=input_shape)
     
     # 1. Traditional Color Stream (RGB + HSV)
-    hsv = layers.Lambda(lambda x: tf.image.rgb_to_hsv(x))(img_input)
+    hsv =tf.keras.layers.Lambda(lambda x: tf.image.rgb_to_hsv(x))(img_input)
     
     # 2. Texture Preprocessing Stream
     # Laplacian highlights high-frequency noise and edges
     # Texture Preprocessing Stream
-    gray = layers.Lambda(lambda x: tf.image.rgb_to_grayscale(x))(img_input)
+    gray =tf.keras.layers.Lambda(lambda x: tf.image.rgb_to_grayscale(x))(img_input)
     
     laplacian_matrix = tf.constant([[0, 1, 0], [1, -4, 1], [0, 1, 0]], dtype=tf.float32)
     # Change from [3,3] -> [3,3,1,1]
     laplacian_kernel = laplacian_matrix[..., tf.newaxis, tf.newaxis] 
     
-    laplacian = layers.Lambda(
+    laplacian =tf.keras.layers.Lambda(
         lambda x: tf.nn.convolution(x, laplacian_kernel, padding='SAME')
     )(gray)
     
     # 3. 8-Channel Fusion (RGB + HSV + Gray + Laplacian)
-    combined = layers.Concatenate(axis=-1)([img_input, hsv, gray, laplacian])
+    combined =tf.keras.layers.Concatenate(axis=-1)([img_input, hsv, gray, laplacian])
 
     # 4. ResNet Backbone
     base_model = tf.keras.applications.ResNet50V2(
@@ -636,32 +635,32 @@ def build_resnet50v2_texture_fusion(input_shape=(224, 224, 3)):
     
     # 5. Hybrid Global Pooling (The "EER Killer")
     # GAP catches the general face structure
-    gap = layers.GlobalAveragePooling2D()(base_model.output)
+    gap =tf.keras.layers.GlobalAveragePooling2D()(base_model.output)
     # GMP catches the "smoking gun" artifacts (pixels, glare)
-    gmp = layers.GlobalMaxPooling2D()(base_model.output)
+    gmp =tf.keras.layers.GlobalMaxPooling2D()(base_model.output)
     
     # Merge the global insights
-    merged = layers.Concatenate()([gap, gmp])
+    merged =tf.keras.layers.Concatenate()([gap, gmp])
     
     # 6. Regularized Head
-    x = layers.Dense(512, activation='relu')(merged)
-    x = layers.BatchNormalization()(x)
-    x = layers.Dropout(0.5)(x)
+    x =tf.keras.layers.Dense(512, activation='relu')(merged)
+    x =tf.keras.layers.BatchNormalization()(x)
+    x =tf.keras.layers.Dropout(0.5)(x)
     
-    output = layers.Dense(1, activation='sigmoid')(x)
+    output =tf.keras.layers.Dense(1, activation='sigmoid')(x)
     
-    model = models.Model(inputs=img_input, outputs=output, name="ResNet_Texture_Fusion")
+    model =tf.keras.models.Model(inputs=img_input, outputs=output, name="ResNet_Texture_Fusion")
     return model
 
 
 def build_resnet50v2_hsv_rgb_v4(input_shape=(224, 224, 3)):
 
-    img_input = layers.Input(shape=input_shape)
+    img_input =tf.keras.layers.Input(shape=input_shape)
     
     
-    hsv = layers.Lambda(lambda x: tf.image.rgb_to_hsv(x))(img_input)
+    hsv =tf.keras.layers.Lambda(lambda x: tf.image.rgb_to_hsv(x))(img_input)
 
-    rgb_hsv = layers.Concatenate(axis=-1)([img_input, hsv])
+    rgb_hsv =tf.keras.layers.Concatenate(axis=-1)([img_input, hsv])
 
     base_model = tf.keras.applications.ResNet50V2(
         input_tensor=rgb_hsv,
@@ -672,10 +671,10 @@ def build_resnet50v2_hsv_rgb_v4(input_shape=(224, 224, 3)):
     mid_features = base_model.get_layer("conv3_block3_out").output
 
     # Hybrid Pooling
-    avg_pool = layers.GlobalAveragePooling2D()(mid_features)
-    max_pool = layers.GlobalMaxPooling2D()(mid_features)
-    hybrid = layers.Concatenate()([avg_pool, max_pool])
-    x = layers.Dense(256, activation='relu')(hybrid)
+    avg_pool =tf.keras.layers.GlobalAveragePooling2D()(mid_features)
+    max_pool =tf.keras.layers.GlobalMaxPooling2D()(mid_features)
+    hybrid =tf.keras.layers.Concatenate()([avg_pool, max_pool])
+    x =tf.keras.layers.Dense(256, activation='relu')(hybrid)
 
     x = tf.keras.layers.Dropout(0.3)(x)
     
@@ -688,12 +687,12 @@ def build_resnet50v2_hsv_rgb_v4(input_shape=(224, 224, 3)):
 
 def build_resnet50_hsv_rgb(input_shape=(224, 224, 3)):
 
-    img_input = layers.Input(shape=input_shape)
+    img_input =tf.keras.layers.Input(shape=input_shape)
     
     
-    hsv = layers.Lambda(lambda x: tf.image.rgb_to_hsv(x))(img_input)
+    hsv =tf.keras.layers.Lambda(lambda x: tf.image.rgb_to_hsv(x))(img_input)
 
-    rgb_hsv = layers.Concatenate(axis=-1)([img_input, hsv])
+    rgb_hsv =tf.keras.layers.Concatenate(axis=-1)([img_input, hsv])
 
     base_model = tf.keras.applications.ResNet50(
         input_tensor=rgb_hsv,
@@ -713,14 +712,14 @@ def build_resnet50_hsv_rgb(input_shape=(224, 224, 3)):
 
 def build_resnet50v2_hsv_rgb_h_lbp(input_shape=(224, 224, 3)):
 
-    img_input = layers.Input(shape=input_shape)
+    img_input =tf.keras.layers.Input(shape=input_shape)
     
-    hsv = layers.Lambda(lambda x: tf.image.rgb_to_hsv(x))(img_input)
+    hsv =tf.keras.layers.Lambda(lambda x: tf.image.rgb_to_hsv(x))(img_input)
 
-    h = layers.Lambda(lambda x: x[:, :, :, 0:1], name="hue_channel")(hsv)
-    lpb_h = layers.Lambda(get_lbp_gpu, name="lbp_extraction")(h)
+    h =tf.keras.layers.Lambda(lambda x: x[:, :, :, 0:1], name="hue_channel")(hsv)
+    lpb_h =tf.keras.layers.Lambda(get_lbp_gpu, name="lbp_extraction")(h)
 
-    rgb_hsv = layers.Concatenate(axis=-1)([img_input, hsv, lpb_h])
+    rgb_hsv =tf.keras.layers.Concatenate(axis=-1)([img_input, hsv, lpb_h])
 
     base_model = tf.keras.applications.ResNet50V2(
         input_tensor=rgb_hsv,
@@ -739,14 +738,14 @@ def build_resnet50v2_hsv_rgb_h_lbp(input_shape=(224, 224, 3)):
 
 def build_resnet50v2_hsv_rgb_grayscale_lbp(input_shape=(224, 224, 3)):
 
-    img_input = layers.Input(shape=input_shape)
+    img_input =tf.keras.layers.Input(shape=input_shape)
     
-    hsv = layers.Lambda(lambda x: tf.image.rgb_to_hsv(x))(img_input)
+    hsv =tf.keras.layers.Lambda(lambda x: tf.image.rgb_to_hsv(x))(img_input)
 
-    grayscale = layers.Lambda(lambda x: tf.image.rgb_to_grayscale(x), name="grayscale_conversion")(img_input)
-    lpb_grayscale = layers.Lambda(get_lbp_gpu, name="lbp_extraction")(grayscale)
+    grayscale =tf.keras.layers.Lambda(lambda x: tf.image.rgb_to_grayscale(x), name="grayscale_conversion")(img_input)
+    lpb_grayscale =tf.keras.layers.Lambda(get_lbp_gpu, name="lbp_extraction")(grayscale)
 
-    rgb_hsv = layers.Concatenate(axis=-1)([img_input, hsv, lpb_grayscale])
+    rgb_hsv =tf.keras.layers.Concatenate(axis=-1)([img_input, hsv, lpb_grayscale])
 
     base_model = tf.keras.applications.ResNet50V2(
         input_tensor=rgb_hsv,
@@ -766,12 +765,12 @@ def build_resnet50v2_hsv_rgb_grayscale_lbp(input_shape=(224, 224, 3)):
 
 def build_resnet50v2_hsv_rgb_drop5(input_shape=(224, 224, 3)):
 
-    img_input = layers.Input(shape=input_shape)
+    img_input =tf.keras.layers.Input(shape=input_shape)
     
     
-    hsv = layers.Lambda(lambda x: tf.image.rgb_to_hsv(x))(img_input)
+    hsv =tf.keras.layers.Lambda(lambda x: tf.image.rgb_to_hsv(x))(img_input)
 
-    rgb_hsv = layers.Concatenate(axis=-1)([img_input, hsv])
+    rgb_hsv =tf.keras.layers.Concatenate(axis=-1)([img_input, hsv])
 
     base_model = tf.keras.applications.ResNet50V2(
         input_tensor=rgb_hsv,
@@ -790,12 +789,12 @@ def build_resnet50v2_hsv_rgb_drop5(input_shape=(224, 224, 3)):
 
 def build_resnet50v2_hsv_rgb(input_shape=(224, 224, 3)):
 
-    img_input = layers.Input(shape=input_shape)
+    img_input =tf.keras.layers.Input(shape=input_shape)
     
     
-    hsv = layers.Lambda(lambda x: tf.image.rgb_to_hsv(x))(img_input)
+    hsv =tf.keras.layers.Lambda(lambda x: tf.image.rgb_to_hsv(x))(img_input)
 
-    rgb_hsv = layers.Concatenate(axis=-1)([img_input, hsv])
+    rgb_hsv =tf.keras.layers.Concatenate(axis=-1)([img_input, hsv])
 
     base_model = tf.keras.applications.ResNet50V2(
         input_tensor=rgb_hsv,
@@ -814,12 +813,12 @@ def build_resnet50v2_hsv_rgb(input_shape=(224, 224, 3)):
 
 def build_resnet50v2_hsv_v4(input_shape=(224, 224, 3)):
 
-    img_input = layers.Input(shape=input_shape)
+    img_input =tf.keras.layers.Input(shape=input_shape)
     
     
-    hsv = layers.Lambda(lambda x: tf.image.rgb_to_hsv(x))(img_input)
+    hsv =tf.keras.layers.Lambda(lambda x: tf.image.rgb_to_hsv(x))(img_input)
 
-    # rgb_hsv = layers.Concatenate(axis=-1)([img_input, hsv])
+    # rgb_hsv =tf.keras.layers.Concatenate(axis=-1)([img_input, hsv])
 
     base_model = tf.keras.applications.ResNet50V2(
         input_tensor=hsv,
@@ -830,10 +829,10 @@ def build_resnet50v2_hsv_v4(input_shape=(224, 224, 3)):
     mid_features = base_model.get_layer("conv3_block3_out").output
 
     # Hybrid Pooling
-    avg_pool = layers.GlobalAveragePooling2D()(mid_features)
-    max_pool = layers.GlobalMaxPooling2D()(mid_features)
-    hybrid = layers.Concatenate()([avg_pool, max_pool])
-    x = layers.Dense(256, activation='relu')(hybrid)
+    avg_pool =tf.keras.layers.GlobalAveragePooling2D()(mid_features)
+    max_pool =tf.keras.layers.GlobalMaxPooling2D()(mid_features)
+    hybrid =tf.keras.layers.Concatenate()([avg_pool, max_pool])
+    x =tf.keras.layers.Dense(256, activation='relu')(hybrid)
 
     x = tf.keras.layers.Dropout(0.3)(x)
     
@@ -848,16 +847,16 @@ def squeeze_excite_block(input_tensor, ratio=16):
     filters = init.shape[-1]
     se_shape = (1, 1, filters)
 
-    se = layers.GlobalAveragePooling2D()(init)
-    se = layers.Reshape(se_shape)(se)
-    se = layers.Dense(filters // ratio, activation='relu', use_bias=False)(se)
-    se = layers.Dense(filters, activation='sigmoid', use_bias=False)(se)
+    se =tf.keras.layers.GlobalAveragePooling2D()(init)
+    se =tf.keras.layers.Reshape(se_shape)(se)
+    se =tf.keras.layers.Dense(filters // ratio, activation='relu', use_bias=False)(se)
+    se =tf.keras.layers.Dense(filters, activation='sigmoid', use_bias=False)(se)
 
-    return layers.multiply([init, se])
+    return tf.keras.layers.multiply([init, se])
 
 
 def build_resnet50v2_rgb_v4_Fusion(input_shape=(224, 224, 3)):
-    img_input = layers.Input(shape=input_shape)
+    img_input =tf.keras.layers.Input(shape=input_shape)
     base_model = tf.keras.applications.ResNet50V2(input_tensor=img_input, include_top=False, weights=None)
     
     # Extract shallow and mid features
@@ -865,76 +864,76 @@ def build_resnet50v2_rgb_v4_Fusion(input_shape=(224, 224, 3)):
     f2 = base_model.get_layer("conv3_block3_out").output # Mid-level patterns
 
     # Pool both and fuse
-    p1 = layers.GlobalAveragePooling2D()(f1)
-    p2 = layers.GlobalAveragePooling2D()(f2)
+    p1 =tf.keras.layers.GlobalAveragePooling2D()(f1)
+    p2 =tf.keras.layers.GlobalAveragePooling2D()(f2)
     
-    fusion = layers.Concatenate()([p1, p2])
-    x = layers.Dense(256, activation='relu')(fusion)
-    x = layers.Dropout(0.3)(x)
-    output = layers.Dense(1, activation='sigmoid')(x)
+    fusion =tf.keras.layers.Concatenate()([p1, p2])
+    x =tf.keras.layers.Dense(256, activation='relu')(fusion)
+    x =tf.keras.layers.Dropout(0.3)(x)
+    output =tf.keras.layers.Dense(1, activation='sigmoid')(x)
     
     return tf.keras.models.Model(inputs=img_input, outputs=output, name="resNet50V2_Fusion_V4")
 
 def build_resnet50v2_rgb_v4_Patches(input_shape=(224, 224, 3), patch_size=112):
-    img_input = layers.Input(shape=input_shape)
+    img_input =tf.keras.layers.Input(shape=input_shape)
     
     # Random Crop Layer (Active during training)
-    x = layers.RandomCrop(patch_size, patch_size)(img_input)
-    x = layers.Resizing(224, 224)(x) # Resize back to expected input size
+    x =tf.keras.layers.RandomCrop(patch_size, patch_size)(img_input)
+    x =tf.keras.layers.Resizing(224, 224)(x) # Resize back to expected input size
     
     base_model = tf.keras.applications.ResNet50V2(input_tensor=x, include_top=False, weights=None)
     mid_features = base_model.get_layer("conv3_block3_out").output
 
-    hybrid = layers.Concatenate()([layers.GlobalAveragePooling2D()(mid_features), 
-                                   layers.GlobalMaxPooling2D()(mid_features)])
+    hybrid =tf.keras.layers.Concatenate()([tf.keras.layers.GlobalAveragePooling2D()(mid_features), 
+                                  tf.keras.layers.GlobalMaxPooling2D()(mid_features)])
     
-    x = layers.Dense(256, activation='relu')(hybrid)
-    output = layers.Dense(1, activation='sigmoid')(x)
+    x =tf.keras.layers.Dense(256, activation='relu')(hybrid)
+    output =tf.keras.layers.Dense(1, activation='sigmoid')(x)
     
     return tf.keras.models.Model(inputs=img_input, outputs=output, name="resNet50V2_Patches_V4")
 
 
 def build_resnet50v2_rgb_v4_Cutout(input_shape=(224, 224, 3)):
-    img_input = layers.Input(shape=input_shape)
+    img_input =tf.keras.layers.Input(shape=input_shape)
     
     # Randomly "delete" a patch of the image (set to 0)
     # Using a high dropout rate for the spatial area
-    x = layers.SpatialDropout2D(0.1)(img_input) 
+    x =tf.keras.layers.SpatialDropout2D(0.1)(img_input) 
     
     base_model = tf.keras.applications.ResNet50V2(input_tensor=x, include_top=False, weights=None)
     mid_features = base_model.get_layer("conv3_block3_out").output
 
-    hybrid = layers.Concatenate()([layers.GlobalAveragePooling2D()(mid_features), 
-                                   layers.GlobalMaxPooling2D()(mid_features)])
+    hybrid =tf.keras.layers.Concatenate()([tf.keras.layers.GlobalAveragePooling2D()(mid_features), 
+                                  tf.keras.layers.GlobalMaxPooling2D()(mid_features)])
     
-    x = layers.Dense(256, activation='relu')(hybrid)
-    output = layers.Dense(1, activation='sigmoid')(x)
+    x =tf.keras.layers.Dense(256, activation='relu')(hybrid)
+    output =tf.keras.layers.Dense(1, activation='sigmoid')(x)
     
     return tf.keras.models.Model(inputs=img_input, outputs=output, name="resNet50V2_Cutout_V4")
 
 
 def build_resnet50v2_rgb_v4_SE(input_shape=(224, 224, 3)):
-    img_input = layers.Input(shape=input_shape)
+    img_input =tf.keras.layers.Input(shape=input_shape)
     base_model = tf.keras.applications.ResNet50V2(input_tensor=img_input, include_top=False, weights=None)
     
     mid_features = base_model.get_layer("conv3_block3_out").output
     
     attended_features = squeeze_excite_block(mid_features)
 
-    avg_pool = layers.GlobalAveragePooling2D()(attended_features)
-    max_pool = layers.GlobalMaxPooling2D()(attended_features)
-    hybrid = layers.Concatenate()([avg_pool, max_pool])
+    avg_pool =tf.keras.layers.GlobalAveragePooling2D()(attended_features)
+    max_pool =tf.keras.layers.GlobalMaxPooling2D()(attended_features)
+    hybrid =tf.keras.layers.Concatenate()([avg_pool, max_pool])
     
-    x = layers.Dense(256, activation='relu')(hybrid)
-    x = layers.Dropout(0.3)(x)
-    output = layers.Dense(1, activation='sigmoid')(x)
+    x =tf.keras.layers.Dense(256, activation='relu')(hybrid)
+    x =tf.keras.layers.Dropout(0.3)(x)
+    output =tf.keras.layers.Dense(1, activation='sigmoid')(x)
     
     return tf.keras.models.Model(inputs=img_input, outputs=output, name="resNet50V2_SE_V4")
 
 
 def build_resnet50v2_rgb_v4_light_classifier(input_shape=(224, 224, 3)):
 
-    img_input = layers.Input(shape=input_shape)
+    img_input = tf.keras.layers.Input(shape=input_shape)
     
     base_model = tf.keras.applications.ResNet50V2(
         input_tensor=img_input,
@@ -944,10 +943,10 @@ def build_resnet50v2_rgb_v4_light_classifier(input_shape=(224, 224, 3)):
     
     mid_features = base_model.get_layer("conv3_block3_out").output
 
-    avg_pool = layers.GlobalAveragePooling2D()(mid_features)
-    max_pool = layers.GlobalMaxPooling2D()(mid_features)
-    hybrid = layers.Concatenate()([avg_pool, max_pool])
-    x = layers.Dense(128, activation='relu')(hybrid)
+    avg_pool =tf.keras.layers.GlobalAveragePooling2D()(mid_features)
+    max_pool =tf.keras.layers.GlobalMaxPooling2D()(mid_features)
+    hybrid =tf.keras.layers.Concatenate()([avg_pool, max_pool])
+    x =tf.keras.layers.Dense(128, activation='relu')(hybrid)
 
     x = tf.keras.layers.Dropout(0.3)(x)
     
@@ -958,12 +957,12 @@ def build_resnet50v2_rgb_v4_light_classifier(input_shape=(224, 224, 3)):
 
 def build_resnet50v2_rgb_v4_4erasedPatches_scale_5(input_shape=(224, 224, 3)):
 
-    img_input = layers.Input(shape=input_shape)
+    img_input =tf.keras.layers.Input(shape=input_shape)
 
-    input = layers.RandomErasing(factor=(1.0,1.0), scale=(0.05, 0.05), fill_value=0.0)(img_input)
-    input = layers.RandomErasing(factor=(1.0,1.0), scale=(0.05, 0.05), fill_value=0.0)(input)
-    input = layers.RandomErasing(factor=(1.0,1.0), scale=(0.05, 0.05), fill_value=0.0)(input)
-    input = layers.RandomErasing(factor=(1.0,1.0), scale=(0.05, 0.05), fill_value=0.0)(input)
+    input =tf.keras.layers.RandomErasing(factor=(1.0,1.0), scale=(0.05, 0.05), fill_value=0.0)(img_input)
+    input =tf.keras.layers.RandomErasing(factor=(1.0,1.0), scale=(0.05, 0.05), fill_value=0.0)(input)
+    input =tf.keras.layers.RandomErasing(factor=(1.0,1.0), scale=(0.05, 0.05), fill_value=0.0)(input)
+    input =tf.keras.layers.RandomErasing(factor=(1.0,1.0), scale=(0.05, 0.05), fill_value=0.0)(input)
     
     base_model = tf.keras.applications.ResNet50V2(
         input_tensor=input,
@@ -973,10 +972,10 @@ def build_resnet50v2_rgb_v4_4erasedPatches_scale_5(input_shape=(224, 224, 3)):
     
     mid_features = base_model.get_layer("conv3_block3_out").output
 
-    avg_pool = layers.GlobalAveragePooling2D()(mid_features)
-    max_pool = layers.GlobalMaxPooling2D()(mid_features)
-    hybrid = layers.Concatenate()([avg_pool, max_pool])
-    x = layers.Dense(256, activation='relu')(hybrid)
+    avg_pool =tf.keras.layers.GlobalAveragePooling2D()(mid_features)
+    max_pool =tf.keras.layers.GlobalMaxPooling2D()(mid_features)
+    hybrid =tf.keras.layers.Concatenate()([avg_pool, max_pool])
+    x =tf.keras.layers.Dense(256, activation='relu')(hybrid)
 
     x = tf.keras.layers.Dropout(0.3)(x)
     
@@ -987,14 +986,14 @@ def build_resnet50v2_rgb_v4_4erasedPatches_scale_5(input_shape=(224, 224, 3)):
 
 def build_resnet50v2_rgb_v4_4erasedPatches_scale_5_prob_05(input_shape=(224, 224, 3)):
 
-    img_input = layers.Input(shape=input_shape)
+    img_input =tf.keras.layers.Input(shape=input_shape)
     prob = (0.5, 0.5)  # 50% chance to apply erasing
     scale = (0.05, 0.05)
 
-    input = layers.RandomErasing(factor=prob, scale=scale, fill_value=0.0)(img_input)
-    input = layers.RandomErasing(factor=prob, scale=scale, fill_value=0.0)(input)
-    input = layers.RandomErasing(factor=prob, scale=scale, fill_value=0.0)(input)
-    input = layers.RandomErasing(factor=prob, scale=scale, fill_value=0.0)(input)
+    input =tf.keras.layers.RandomErasing(factor=prob, scale=scale, fill_value=0.0)(img_input)
+    input =tf.keras.layers.RandomErasing(factor=prob, scale=scale, fill_value=0.0)(input)
+    input =tf.keras.layers.RandomErasing(factor=prob, scale=scale, fill_value=0.0)(input)
+    input =tf.keras.layers.RandomErasing(factor=prob, scale=scale, fill_value=0.0)(input)
     
     base_model = tf.keras.applications.ResNet50V2(
         input_tensor=input,
@@ -1004,10 +1003,10 @@ def build_resnet50v2_rgb_v4_4erasedPatches_scale_5_prob_05(input_shape=(224, 224
     
     mid_features = base_model.get_layer("conv3_block3_out").output
 
-    avg_pool = layers.GlobalAveragePooling2D()(mid_features)
-    max_pool = layers.GlobalMaxPooling2D()(mid_features)
-    hybrid = layers.Concatenate()([avg_pool, max_pool])
-    x = layers.Dense(256, activation='relu')(hybrid)
+    avg_pool =tf.keras.layers.GlobalAveragePooling2D()(mid_features)
+    max_pool =tf.keras.layers.GlobalMaxPooling2D()(mid_features)
+    hybrid =tf.keras.layers.Concatenate()([avg_pool, max_pool])
+    x =tf.keras.layers.Dense(256, activation='relu')(hybrid)
 
     x = tf.keras.layers.Dropout(0.3)(x)
     
@@ -1018,11 +1017,11 @@ def build_resnet50v2_rgb_v4_4erasedPatches_scale_5_prob_05(input_shape=(224, 224
 
 
 def build_resNet50V2_rgb_v4_5streams(input_shape=(224, 224, 3)):
-    full_img_input = layers.Input(shape=input_shape, name="original_input")
+    full_img_input =tf.keras.layers.Input(shape=input_shape, name="original_input")
 
     def extract_upscale(x, x1, y1, x2, y2, name):
-        patch = layers.Lambda(lambda img: img[:, y1:y2, x1:x2, :])(x)
-        return layers.Resizing(224, 224, name=f"upscale_{name}")(patch)
+        patch =tf.keras.layers.Lambda(lambda img: img[:, y1:y2, x1:x2, :])(x)
+        return tf.keras.layers.Resizing(224, 224, name=f"upscale_{name}")(patch)
 
     p_tl = extract_upscale(full_img_input, 0, 0, 112, 112, "TL")
     p_tr = extract_upscale(full_img_input, 112, 0, 224, 112, "TR")
@@ -1037,7 +1036,7 @@ def build_resNet50V2_rgb_v4_5streams(input_shape=(224, 224, 3)):
         weights=None
     )
     
-    feature_extractor = models.Model(
+    feature_extractor =tf.keras.models.Model(
         inputs=shared_resnet.input,
         outputs=shared_resnet.get_layer("conv3_block3_out").output,
         name="shared_backbone_224"
@@ -1045,9 +1044,9 @@ def build_resNet50V2_rgb_v4_5streams(input_shape=(224, 224, 3)):
 
     def get_features(tensor):
         x = feature_extractor(tensor)
-        avg_p = layers.GlobalAveragePooling2D()(x)
-        max_p = layers.GlobalMaxPooling2D()(x)
-        return layers.Concatenate()([avg_p, max_p])
+        avg_p =tf.keras.layers.GlobalAveragePooling2D()(x)
+        max_p =tf.keras.layers.GlobalMaxPooling2D()(x)
+        return tf.keras.layers.Concatenate()([avg_p, max_p])
 
     feat_tl = get_features(p_tl)
     feat_tr = get_features(p_tr)
@@ -1055,21 +1054,21 @@ def build_resNet50V2_rgb_v4_5streams(input_shape=(224, 224, 3)):
     feat_br = get_features(p_br)
     feat_global = get_features(p_global)
 
-    merged = layers.Concatenate(name="merge_5_streams")(
+    merged =tf.keras.layers.Concatenate(name="merge_5_streams")(
         [feat_tl, feat_tr, feat_bl, feat_br, feat_global]
     )
 
-    x = layers.Dense(256, activation='relu')(merged)
-    x = layers.Dropout(0.3)(x)
-    output = layers.Dense(1, activation='sigmoid')(x)
+    x =tf.keras.layers.Dense(256, activation='relu')(merged)
+    x =tf.keras.layers.Dropout(0.3)(x)
+    output =tf.keras.layers.Dense(1, activation='sigmoid')(x)
 
-    return models.Model(inputs=full_img_input, outputs=output, name="resNet50V2_rgb_v4_5streams")
+    return tf.keras.models.Model(inputs=full_img_input, outputs=output, name="resNet50V2_rgb_v4_5streams")
 
 def build_resNet50V2_rgb_v4_4streams(input_shape=(224, 224, 3)):
-    full_img_input = layers.Input(shape=input_shape, name="original_input")
+    full_img_input =tf.keras.layers.Input(shape=input_shape, name="original_input")
 
     def extract(x, x1, y1, x2, y2, name):
-        patch = layers.Lambda(lambda img: img[:, y1:y2, x1:x2, :], name=f"patch_{name}")(x)
+        patch =tf.keras.layers.Lambda(lambda img: img[:, y1:y2, x1:x2, :], name=f"patch_{name}")(x)
         return patch
 
     p_tl = extract(full_img_input, 0, 0, 112, 112, "TL")
@@ -1084,7 +1083,7 @@ def build_resNet50V2_rgb_v4_4streams(input_shape=(224, 224, 3)):
         weights=None
     )
     
-    feature_extractor = models.Model(
+    feature_extractor =tf.keras.models.Model(
         inputs=shared_resnet.input,
         outputs=shared_resnet.get_layer("conv3_block3_out").output,
         name="shared_backbone_224"
@@ -1092,31 +1091,31 @@ def build_resNet50V2_rgb_v4_4streams(input_shape=(224, 224, 3)):
 
     def get_features(tensor):
         x = feature_extractor(tensor)
-        avg_p = layers.GlobalAveragePooling2D()(x)
-        max_p = layers.GlobalMaxPooling2D()(x)
-        return layers.Concatenate()([avg_p, max_p])
+        avg_p =tf.keras.layers.GlobalAveragePooling2D()(x)
+        max_p =tf.keras.layers.GlobalMaxPooling2D()(x)
+        return tf.keras.layers.Concatenate()([avg_p, max_p])
 
     feat_tl = get_features(p_tl)
     feat_tr = get_features(p_tr)
     feat_bl = get_features(p_bl)
     feat_br = get_features(p_br)
 
-    merged = layers.Concatenate(name="merge_4_streams")(
+    merged =tf.keras.layers.Concatenate(name="merge_4_streams")(
         [feat_tl, feat_tr, feat_bl, feat_br]
     )
 
-    x = layers.Dense(256, activation='relu')(merged)
-    x = layers.Dropout(0.3)(x)
-    output = layers.Dense(1, activation='sigmoid')(x)
+    x =tf.keras.layers.Dense(256, activation='relu')(merged)
+    x =tf.keras.layers.Dropout(0.3)(x)
+    output =tf.keras.layers.Dense(1, activation='sigmoid')(x)
 
-    return models.Model(inputs=full_img_input, outputs=output, name="resNet50V2_rgb_v4_4streams")
+    return tf.keras.models.Model(inputs=full_img_input, outputs=output, name="resNet50V2_rgb_v4_4streams")
 
 
 
 # --- 1. Custom Random Erasing Layer (The 'Blocker') ---
 # This forces the model to learn from multiple parts of the face
 def get_erasing_layer():
-    return layers.RandomErasing(
+    return tf.keras.layers.RandomErasing(
         factor=0.5,           # 50% chance to erase
         scale=(0.02, 0.08),   # Small squares to preserve landmarks
         fill_value=0.0,
@@ -1125,7 +1124,7 @@ def get_erasing_layer():
 
 def build_ultimate_fasd_v6(input_shape=(224, 224, 3)):
     # Base Input
-    full_img_input = layers.Input(shape=input_shape, name="original_input")
+    full_img_input =tf.keras.layers.Input(shape=input_shape, name="original_input")
 
     # --- 2. Shared ResNet Backbone (Texture Expert) ---
     # We use conv2 for higher resolution texture features
@@ -1136,7 +1135,7 @@ def build_ultimate_fasd_v6(input_shape=(224, 224, 3)):
     )
     
     # Targeting conv2_block3_out for high-res local artifacts
-    inner_resnet = models.Model(
+    inner_resnet =tf.keras.models.Model(
         inputs=base_resnet.input,
         outputs=base_resnet.get_layer("conv2_block3_out").output,
         name="shared_resnet_texture"
@@ -1149,14 +1148,14 @@ def build_ultimate_fasd_v6(input_shape=(224, 224, 3)):
         x = erasing(tensor, training=training)
         x = inner_resnet(x)
         # Hybrid Pooling (Max + Avg)
-        avg_p = layers.GlobalAveragePooling2D()(x)
-        max_p = layers.GlobalMaxPooling2D()(x)
-        return layers.Concatenate()([avg_p, max_p])
+        avg_p =tf.keras.layers.GlobalAveragePooling2D()(x)
+        max_p =tf.keras.layers.GlobalMaxPooling2D()(x)
+        return tf.keras.layers.Concatenate()([avg_p, max_p])
 
     # --- 4. Stream Extraction (4 Patches) ---
     def get_patch(x, x1, y1, x2, y2):
-        patch = layers.Lambda(lambda img: img[:, y1:y2, x1:x2, :])(x)
-        return layers.Resizing(224, 224)(patch)
+        patch =tf.keras.layers.Lambda(lambda img: img[:, y1:y2, x1:x2, :])(x)
+        return tf.keras.layers.Resizing(224, 224)(patch)
 
     # Local Patches (TL, TR, BL, BR)
     feat_tl = process_stream(get_patch(full_img_input, 0, 0, 112, 112))
@@ -1171,94 +1170,94 @@ def build_ultimate_fasd_v6(input_shape=(224, 224, 3)):
         # Patchify (8x8 patches)
         p_size = 16
         num_patches = (224 // p_size) ** 2
-        x = layers.Conv2D(256, kernel_size=p_size, strides=p_size)(x)
-        x = layers.Reshape((num_patches, 256))(x)
+        x =tf.keras.layers.Conv2D(256, kernel_size=p_size, strides=p_size)(x)
+        x =tf.keras.layers.Reshape((num_patches, 256))(x)
         
         # Self-Attention Block
-        attn = layers.MultiHeadAttention(num_heads=8, key_dim=256)(x, x)
-        x = layers.Add()([x, attn])
-        x = layers.LayerNormalization()(x)
+        attn =tf.keras.layers.MultiHeadAttention(num_heads=8, key_dim=256)(x, x)
+        x =tf.keras.layers.Add()([x, attn])
+        x =tf.keras.layers.LayerNormalization()(x)
         
         # MLP Block
-        mlp = layers.Dense(512, activation='gelu')(x)
-        mlp = layers.Dense(256)(mlp)
-        x = layers.Add()([x, mlp])
+        mlp =tf.keras.layers.Dense(512, activation='gelu')(x)
+        mlp =tf.keras.layers.Dense(256)(mlp)
+        x =tf.keras.layers.Add()([x, mlp])
         
-        return layers.GlobalAveragePooling1D()(x)
+        return tf.keras.layers.GlobalAveragePooling1D()(x)
 
     feat_global = transformer_stream(full_img_input)
 
     # --- 6. The Fusion Head ---
-    merged = layers.Concatenate(name="fusion_layer")(
+    merged =tf.keras.layers.Concatenate(name="fusion_layer")(
         [feat_tl, feat_tr, feat_bl, feat_br, feat_global]
     )
     
     # Deep Classifier
-    x = layers.Dense(1024, activation='relu')(merged)
-    x = layers.BatchNormalization()(x)
-    x = layers.Dropout(0.5)(x)
+    x =tf.keras.layers.Dense(1024, activation='relu')(merged)
+    x =tf.keras.layers.BatchNormalization()(x)
+    x =tf.keras.layers.Dropout(0.5)(x)
     
-    x = layers.Dense(256, activation='relu')(x)
-    x = layers.Dropout(0.3)(x)
+    x =tf.keras.layers.Dense(256, activation='relu')(x)
+    x =tf.keras.layers.Dropout(0.3)(x)
     
-    output = layers.Dense(1, activation='sigmoid', name="final_decision")(x)
+    output =tf.keras.layers.Dense(1, activation='sigmoid', name="final_decision")(x)
 
-    model = models.Model(inputs=full_img_input, outputs=output, name="FASD_Zero_EER_Candidate")
+    model =tf.keras.models.Model(inputs=full_img_input, outputs=output, name="FASD_Zero_EER_Candidate")
     return model
 
 def build_pure_vit_fasd(input_shape=(224, 224, 3), patch_size=16, num_layers=8):
-    inputs = layers.Input(shape=input_shape)
+    inputs =tf.keras.layers.Input(shape=input_shape)
 
     # 1. Patchify the image (224/16 = 14x14 = 196 patches)
     # We use a Conv2D layer as a "Patch Encoder"
     projection_dim = 256
-    patches = layers.Conv2D(projection_dim, kernel_size=patch_size, strides=patch_size, name="patch_encoder")(inputs)
+    patches =tf.keras.layers.Conv2D(projection_dim, kernel_size=patch_size, strides=patch_size, name="patch_encoder")(inputs)
     
     # Reshape to (Batch, 196, 256)
     num_patches = (input_shape[0] // patch_size) ** 2
-    x = layers.Reshape((num_patches, projection_dim))(patches)
+    x =tf.keras.layers.Reshape((num_patches, projection_dim))(patches)
 
     # 2. Positional Embedding (Crucial so ViT knows 'where' the eyes/mouth are)
     positions = tf.range(start=0, limit=num_patches, delta=1)
-    pos_embedding = layers.Embedding(input_dim=num_patches, output_dim=projection_dim)(positions)
+    pos_embedding =tf.keras.layers.Embedding(input_dim=num_patches, output_dim=projection_dim)(positions)
     x = x + pos_embedding
 
     # 3. Transformer Blocks
     for i in range(num_layers):
         # Layer Norm 1 + Multi-Head Attention
-        x1 = layers.LayerNormalization(epsilon=1e-6)(x)
-        attention_output = layers.MultiHeadAttention(
+        x1 =tf.keras.layers.LayerNormalization(epsilon=1e-6)(x)
+        attention_output =tf.keras.layers.MultiHeadAttention(
             num_heads=8, key_dim=projection_dim // 8, dropout=0.1
         )(x1, x1)
-        x2 = layers.Add()([attention_output, x])
+        x2 =tf.keras.layers.Add()([attention_output, x])
         
         # Layer Norm 2 + MLP (Feed Forward)
-        x3 = layers.LayerNormalization(epsilon=1e-6)(x2)
-        x3 = layers.Dense(projection_dim * 2, activation=tf.nn.gelu)(x3)
-        x3 = layers.Dropout(0.1)(x3)
-        x3 = layers.Dense(projection_dim)(x3)
-        x3 = layers.Dropout(0.1)(x3)
-        x = layers.Add()([x3, x2])
+        x3 =tf.keras.layers.LayerNormalization(epsilon=1e-6)(x2)
+        x3 =tf.keras.layers.Dense(projection_dim * 2, activation=tf.nn.gelu)(x3)
+        x3 =tf.keras.layers.Dropout(0.1)(x3)
+        x3 =tf.keras.layers.Dense(projection_dim)(x3)
+        x3 =tf.keras.layers.Dropout(0.1)(x3)
+        x =tf.keras.layers.Add()([x3, x2])
 
     # 4. Global Representation (Class Token equivalent)
     # Instead of a CLS token, we'll use Global Average Pooling for stability
-    representation = layers.GlobalAveragePooling1D()(x)
-    representation = layers.LayerNormalization(epsilon=1e-6)(representation)
+    representation =tf.keras.layers.GlobalAveragePooling1D()(x)
+    representation =tf.keras.layers.LayerNormalization(epsilon=1e-6)(representation)
 
     # 5. Classification Head
-    x = layers.Dense(128, activation='relu')(representation)
-    x = layers.Dropout(0.5)(x) # High dropout to match your 2% EER issue
-    output = layers.Dense(1, activation='sigmoid')(x)
+    x =tf.keras.layers.Dense(128, activation='relu')(representation)
+    x =tf.keras.layers.Dropout(0.5)(x) # High dropout to match your 2% EER issue
+    output =tf.keras.layers.Dense(1, activation='sigmoid')(x)
 
-    model = models.Model(inputs=inputs, outputs=output, name="Pure_ViT_FASD")
+    model =tf.keras.models.Model(inputs=inputs, outputs=output, name="Pure_ViT_FASD")
     return model
 
 
 def build_resnet_vit_hybrid_v7(input_shape=(224, 224, 3)):
-    img_input = layers.Input(shape=input_shape)
+    img_input =tf.keras.layers.Input(shape=input_shape)
     
     # 1. Erasing Layer (To force the ViT to look at multiple patches)
-    x = layers.RandomErasing(factor=0.3, scale=(0.02, 0.1))(img_input)
+    x =tf.keras.layers.RandomErasing(factor=0.3, scale=(0.02, 0.1))(img_input)
 
     # 2. ResNet Backbone
     base_model = tf.keras.applications.ResNet50V2(input_tensor=x, include_top=False, weights=None)
@@ -1266,31 +1265,31 @@ def build_resnet_vit_hybrid_v7(input_shape=(224, 224, 3)):
 
     # 3. Lightweight Transformer Block (The "ViT" part)
     # We treat the 28x28 spatial grid as a sequence of 784 tokens
-    tokens = layers.Reshape((784, 512))(mid_features)
+    tokens =tf.keras.layers.Reshape((784, 512))(mid_features)
     
     # Self-Attention allows every part of the face to talk to each other
-    attn_output = layers.MultiHeadAttention(num_heads=4, key_dim=128)(tokens, tokens)
-    x = layers.Add()([tokens, attn_output])
-    x = layers.LayerNormalization()(x)
+    attn_output =tf.keras.layers.MultiHeadAttention(num_heads=4, key_dim=128)(tokens, tokens)
+    x =tf.keras.layers.Add()([tokens, attn_output])
+    x =tf.keras.layers.LayerNormalization()(x)
 
     # 4. Global Reasoning & Classification
     # This pools the global "attention" into a single vector
-    avg_p = layers.GlobalAveragePooling1D()(x)
-    max_p = layers.GlobalMaxPooling1D()(x)
+    avg_p =tf.keras.layers.GlobalAveragePooling1D()(x)
+    max_p =tf.keras.layers.GlobalMaxPooling1D()(x)
     
     # 768 features (256 from avg + 512 from max-like logic, or concat)
-    hybrid_feat = layers.Concatenate()([avg_p, max_p])
+    hybrid_feat =tf.keras.layers.Concatenate()([avg_p, max_p])
     
-    x = layers.Dense(256, activation='relu')(hybrid_feat)
-    x = layers.Dropout(0.4)(x) # Increased dropout to fix your generalization gap
-    output = layers.Dense(1, activation='sigmoid')(x)
+    x =tf.keras.layers.Dense(256, activation='relu')(hybrid_feat)
+    x =tf.keras.layers.Dropout(0.4)(x) # Increased dropout to fix your generalization gap
+    output =tf.keras.layers.Dense(1, activation='sigmoid')(x)
     
-    return models.Model(inputs=img_input, outputs=output, name="ResNet_ViT_Hybrid_V7")
+    return tf.keras.models.Model(inputs=img_input, outputs=output, name="ResNet_ViT_Hybrid_V7")
 
 
 def build_resnet50v2_rgb_v4_power_classifier(input_shape=(224, 224, 3)):
 
-    img_input = layers.Input(shape=input_shape)
+    img_input =tf.keras.layers.Input(shape=input_shape)
     
     base_model = tf.keras.applications.ResNet50V2(
         input_tensor=img_input,
@@ -1300,22 +1299,22 @@ def build_resnet50v2_rgb_v4_power_classifier(input_shape=(224, 224, 3)):
     
     mid_features = base_model.get_layer("conv3_block3_out").output
 
-    avg_pool = layers.GlobalAveragePooling2D()(mid_features)
-    max_pool = layers.GlobalMaxPooling2D()(mid_features)
-    hybrid = layers.Concatenate()([avg_pool, max_pool])
+    avg_pool =tf.keras.layers.GlobalAveragePooling2D()(mid_features)
+    max_pool =tf.keras.layers.GlobalMaxPooling2D()(mid_features)
+    hybrid =tf.keras.layers.Concatenate()([avg_pool, max_pool])
 
-    x = layers.Dense(256, activation='relu', kernel_regularizer='l2')(hybrid) # Added L2 regularization for better generalization
-    x = layers.Dropout(0.6)(x) # Higher dropout to prevent overfitting
-    x = layers.Dense(64, activation='relu')(x)
+    x =tf.keras.layers.Dense(256, activation='relu', kernel_regularizer='l2')(hybrid) # Added L2 regularization for better generalization
+    x =tf.keras.layers.Dropout(0.6)(x) # Higher dropout to prevent overfitting
+    x =tf.keras.layers.Dense(64, activation='relu')(x)
     
-    output = layers.Dense(1, activation='sigmoid', name="classifier")(x)
+    output =tf.keras.layers.Dense(1, activation='sigmoid', name="classifier")(x)
     
     model = tf.keras.models.Model(inputs=img_input, outputs=output, name = "resNet50V2_FASD_RGB_V4_Power_Classifier")
     return model
 
 def build_resnet50v2_rgb_v4(input_shape=(224, 224, 3)):
 
-    img_input = layers.Input(shape=input_shape)
+    img_input =tf.keras.layers.Input(shape=input_shape)
     
     base_model = tf.keras.applications.ResNet50V2(
         input_tensor=img_input,
@@ -1325,10 +1324,10 @@ def build_resnet50v2_rgb_v4(input_shape=(224, 224, 3)):
     
     mid_features = base_model.get_layer("conv3_block3_out").output
 
-    avg_pool = layers.GlobalAveragePooling2D()(mid_features)
-    max_pool = layers.GlobalMaxPooling2D()(mid_features)
-    hybrid = layers.Concatenate(name = "hybrid_pooling")([avg_pool, max_pool])
-    x = layers.Dense(256, activation='relu')(hybrid)
+    avg_pool =tf.keras.layers.GlobalAveragePooling2D()(mid_features)
+    max_pool =tf.keras.layers.GlobalMaxPooling2D()(mid_features)
+    hybrid =tf.keras.layers.Concatenate(name = "hybrid_pooling")([avg_pool, max_pool])
+    x =tf.keras.layers.Dense(256, activation='relu')(hybrid)
 
     x = tf.keras.layers.Dropout(0.3)(x)
     
@@ -1460,7 +1459,7 @@ augmentation = tf.keras.Sequential([
     ], name="data_augmentation")
 
 def init_model(input_shape=(224, 224, 3)):
-    img_input = layers.Input(shape=input_shape)
+    img_input =tf.keras.layers.Input(shape=input_shape)
 
    
     x = augmentation(img_input)
@@ -1474,30 +1473,30 @@ def init_model(input_shape=(224, 224, 3)):
     
     mid_features = base_model.get_layer("conv3_block3_out").output
     
-    avg_pool = layers.GlobalAveragePooling2D()(mid_features)
-    max_pool = layers.GlobalMaxPooling2D()(mid_features)
-    hybrid = layers.Concatenate(name="hybrid_pooling")([avg_pool, max_pool])
+    avg_pool =tf.keras.layers.GlobalAveragePooling2D()(mid_features)
+    max_pool =tf.keras.layers.GlobalMaxPooling2D()(mid_features)
+    hybrid =tf.keras.layers.Concatenate(name="hybrid_pooling")([avg_pool, max_pool])
     
-    x = layers.Dense(256, activation='relu')(hybrid)
-    x = layers.BatchNormalization()(x) # Added for training stability
-    x = layers.Dropout(0.3)(x) # Increased slightly for better generalization
+    x =tf.keras.layers.Dense(256, activation='relu')(hybrid)
+    x =tf.keras.layers.BatchNormalization()(x) # Added for training stability
+    x =tf.keras.layers.Dropout(0.3)(x) # Increased slightly for better generalization
     
-    output = layers.Dense(1, activation='sigmoid')(x)
+    output =tf.keras.layers.Dense(1, activation='sigmoid')(x)
     
     model = tf.keras.models.Model(inputs=img_input, outputs=output, name="resNet50V2_FASD_RGB_V5")
     return model
 
 def init_model_1(input_shape=(224, 224, 3)):
-    img_input = layers.Input(shape=input_shape)
+    img_input =tf.keras.layers.Input(shape=input_shape)
 
    
     augmentation = tf.keras.Sequential([
-        layers.RandomFlip("horizontal"),
-        layers.RandomRotation(0.05), # Reduced from 0.15 to keep faces upright
-        layers.RandomCrop(height=200, width=200),
-        layers.RandomBrightness(0.0005), # Reduced to avoid blowing out skin texture
-        layers.RandomTranslation(height_factor=0.05, width_factor=0.05),
-        layers.Resizing(224, 224),
+       tf.keras.layers.RandomFlip("horizontal"),
+       tf.keras.layers.RandomRotation(0.05), # Reduced from 0.15 to keep faces upright
+       tf.keras.layers.RandomCrop(height=200, width=200),
+       tf.keras.layers.RandomBrightness(0.0005), # Reduced to avoid blowing out skin texture
+       tf.keras.layers.RandomTranslation(height_factor=0.05, width_factor=0.05),
+       tf.keras.layers.Resizing(224, 224),
     ], name="data_augmentation")
     
     
@@ -1512,30 +1511,30 @@ def init_model_1(input_shape=(224, 224, 3)):
     
     mid_features = base_model.get_layer("conv3_block3_out").output
     
-    avg_pool = layers.GlobalAveragePooling2D()(mid_features)
-    max_pool = layers.GlobalMaxPooling2D()(mid_features)
-    hybrid = layers.Concatenate(name="hybrid_pooling")([avg_pool, max_pool])
+    avg_pool =tf.keras.layers.GlobalAveragePooling2D()(mid_features)
+    max_pool =tf.keras.layers.GlobalMaxPooling2D()(mid_features)
+    hybrid =tf.keras.layers.Concatenate(name="hybrid_pooling")([avg_pool, max_pool])
     
-    x = layers.Dense(256, activation='relu')(hybrid)
-    x = layers.BatchNormalization()(x) # Added for training stability
-    x = layers.Dropout(0.3)(x) # Increased slightly for better generalization
+    x =tf.keras.layers.Dense(256, activation='relu')(hybrid)
+    x =tf.keras.layers.BatchNormalization()(x) # Added for training stability
+    x =tf.keras.layers.Dropout(0.3)(x) # Increased slightly for better generalization
     
-    output = layers.Dense(1, activation='sigmoid')(x)
+    output =tf.keras.layers.Dense(1, activation='sigmoid')(x)
     
     model = tf.keras.models.Model(inputs=img_input, outputs=output, name="resNet50V2_FASD_RGB_V5_with_translation_augmentation")
     return model
 
 def init_model_1_2(input_shape=(224, 224, 3)):
-    img_input = layers.Input(shape=input_shape)
+    img_input =tf.keras.layers.Input(shape=input_shape)
 
    
     augmentation = tf.keras.Sequential([
-        layers.RandomFlip("horizontal"),
-        layers.RandomRotation(0.05), # Reduced from 0.15 to keep faces upright
-        layers.RandomCrop(height=200, width=200),
-        layers.RandomBrightness(0.0005), # Reduced to avoid blowing out skin texture
-        layers.GaussianNoise(0.01),
-        layers.Resizing(224, 224),
+       tf.keras.layers.RandomFlip("horizontal"),
+       tf.keras.layers.RandomRotation(0.05), # Reduced from 0.15 to keep faces upright
+       tf.keras.layers.RandomCrop(height=200, width=200),
+       tf.keras.layers.RandomBrightness(0.0005), # Reduced to avoid blowing out skin texture
+       tf.keras.layers.GaussianNoise(0.01),
+       tf.keras.layers.Resizing(224, 224),
     ], name="data_augmentation")
     
     
@@ -1550,21 +1549,21 @@ def init_model_1_2(input_shape=(224, 224, 3)):
     
     mid_features = base_model.get_layer("conv3_block3_out").output
     
-    avg_pool = layers.GlobalAveragePooling2D()(mid_features)
-    max_pool = layers.GlobalMaxPooling2D()(mid_features)
-    hybrid = layers.Concatenate(name="hybrid_pooling")([avg_pool, max_pool])
+    avg_pool =tf.keras.layers.GlobalAveragePooling2D()(mid_features)
+    max_pool =tf.keras.layers.GlobalMaxPooling2D()(mid_features)
+    hybrid =tf.keras.layers.Concatenate(name="hybrid_pooling")([avg_pool, max_pool])
     
-    x = layers.Dense(256, activation='relu')(hybrid)
-    x = layers.BatchNormalization()(x) # Added for training stability
-    x = layers.Dropout(0.3)(x) # Increased slightly for better generalization
+    x =tf.keras.layers.Dense(256, activation='relu')(hybrid)
+    x =tf.keras.layers.BatchNormalization()(x) # Added for training stability
+    x =tf.keras.layers.Dropout(0.3)(x) # Increased slightly for better generalization
     
-    output = layers.Dense(1, activation='sigmoid')(x)
+    output =tf.keras.layers.Dense(1, activation='sigmoid')(x)
     
     model = tf.keras.models.Model(inputs=img_input, outputs=output, name="resNet50V2_FASD_RGB_V5_with_gaussian_noise_augmentation")
     return model
 
 def init_model_2(input_shape=(224, 224, 3)):
-    img_input = layers.Input(shape=input_shape)
+    img_input =tf.keras.layers.Input(shape=input_shape)
     
     x = augmentation(img_input)
 
@@ -1578,28 +1577,28 @@ def init_model_2(input_shape=(224, 224, 3)):
     mid_features = base_model.get_layer("conv3_block3_out").output
     
     filters = mid_features.shape[-1]
-    se = layers.GlobalAveragePooling2D()(mid_features)
-    se = layers.Dense(filters // 16, activation='relu')(se)
-    se = layers.Dense(filters, activation='sigmoid')(se)
-    se = layers.Reshape((1, 1, filters))(se)
-    mid_features = layers.Multiply()([mid_features, se])
+    se =tf.keras.layers.GlobalAveragePooling2D()(mid_features)
+    se =tf.keras.layers.Dense(filters // 16, activation='relu')(se)
+    se =tf.keras.layers.Dense(filters, activation='sigmoid')(se)
+    se =tf.keras.layers.Reshape((1, 1, filters))(se)
+    mid_features =tf.keras.layers.Multiply()([mid_features, se])
 
     # 5. Hybrid Pooling & Head
-    avg_pool = layers.GlobalAveragePooling2D()(mid_features)
-    max_pool = layers.GlobalMaxPooling2D()(mid_features)
-    hybrid = layers.Concatenate(name="hybrid_pooling")([avg_pool, max_pool])
+    avg_pool =tf.keras.layers.GlobalAveragePooling2D()(mid_features)
+    max_pool =tf.keras.layers.GlobalMaxPooling2D()(mid_features)
+    hybrid =tf.keras.layers.Concatenate(name="hybrid_pooling")([avg_pool, max_pool])
     
-    x = layers.Dense(256, activation='relu')(hybrid)
-    x = layers.BatchNormalization()(x) # Added for training stability
-    x = layers.Dropout(0.3)(x) # Increased slightly for better generalization
+    x =tf.keras.layers.Dense(256, activation='relu')(hybrid)
+    x =tf.keras.layers.BatchNormalization()(x) # Added for training stability
+    x =tf.keras.layers.Dropout(0.3)(x) # Increased slightly for better generalization
     
-    output = layers.Dense(1, activation='sigmoid')(x)
+    output =tf.keras.layers.Dense(1, activation='sigmoid')(x)
     
     model = tf.keras.models.Model(inputs=img_input, outputs=output, name="resNet50V2_FASD_RGB_V5")
     return model
 
 def init_model_3(input_shape=(224, 224, 3)):
-    img_input = layers.Input(shape=input_shape)
+    img_input =tf.keras.layers.Input(shape=input_shape)
 
     x = augmentation(img_input)
 
@@ -1612,21 +1611,21 @@ def init_model_3(input_shape=(224, 224, 3)):
     
     mid_features = base_model.get_layer("convnext_tiny_stage_2_block_5_identity").output
     
-    avg_pool = layers.GlobalAveragePooling2D()(mid_features)
-    max_pool = layers.GlobalMaxPooling2D()(mid_features)
-    hybrid = layers.Concatenate(name="hybrid_pooling")([avg_pool, max_pool])
+    avg_pool =tf.keras.layers.GlobalAveragePooling2D()(mid_features)
+    max_pool =tf.keras.layers.GlobalMaxPooling2D()(mid_features)
+    hybrid =tf.keras.layers.Concatenate(name="hybrid_pooling")([avg_pool, max_pool])
     
-    x = layers.Dense(256, activation='relu')(hybrid)
-    x = layers.BatchNormalization()(x) # Added for training stability
-    x = layers.Dropout(0.3)(x) # Increased slightly for better generalization
+    x =tf.keras.layers.Dense(256, activation='relu')(hybrid)
+    x =tf.keras.layers.BatchNormalization()(x) # Added for training stability
+    x =tf.keras.layers.Dropout(0.3)(x) # Increased slightly for better generalization
     
-    output = layers.Dense(1, activation='sigmoid')(x)
+    output =tf.keras.layers.Dense(1, activation='sigmoid')(x)
     
     model = tf.keras.models.Model(inputs=img_input, outputs=output, name="ConvNeXtTiny_FASD_RGB_V1_s2b5")
     return model
 
 def init_model_4(input_shape=(224, 224, 3)):
-    img_input = layers.Input(shape=input_shape)
+    img_input =tf.keras.layers.Input(shape=input_shape)
 
     x = augmentation(img_input)
 
@@ -1639,21 +1638,21 @@ def init_model_4(input_shape=(224, 224, 3)):
     
     mid_features = base_model.get_layer("convnext_tiny_stage_2_block_2_identity").output
     
-    avg_pool = layers.GlobalAveragePooling2D()(mid_features)
-    max_pool = layers.GlobalMaxPooling2D()(mid_features)
-    hybrid = layers.Concatenate(name="hybrid_pooling")([avg_pool, max_pool])
+    avg_pool =tf.keras.layers.GlobalAveragePooling2D()(mid_features)
+    max_pool =tf.keras.layers.GlobalMaxPooling2D()(mid_features)
+    hybrid =tf.keras.layers.Concatenate(name="hybrid_pooling")([avg_pool, max_pool])
     
-    x = layers.Dense(256, activation='relu')(hybrid)
-    x = layers.BatchNormalization()(x) # Added for training stability
-    x = layers.Dropout(0.3)(x) # Increased slightly for better generalization
+    x =tf.keras.layers.Dense(256, activation='relu')(hybrid)
+    x =tf.keras.layers.BatchNormalization()(x) # Added for training stability
+    x =tf.keras.layers.Dropout(0.3)(x) # Increased slightly for better generalization
     
-    output = layers.Dense(1, activation='sigmoid')(x)
+    output =tf.keras.layers.Dense(1, activation='sigmoid')(x)
     
     model = tf.keras.models.Model(inputs=img_input, outputs=output, name="ConvNeXtTiny_FASD_RGB_V1_s2b2")
     return model
 
 def init_model_8(input_shape=(224, 224, 3)):
-    img_input = layers.Input(shape=input_shape)
+    img_input =tf.keras.layers.Input(shape=input_shape)
     
     augmentation = tf.keras.Sequential([
     tf.keras.layers.RandomFlip("horizontal"),
@@ -1675,28 +1674,28 @@ def init_model_8(input_shape=(224, 224, 3)):
     mid_features = base_model.get_layer("conv3_block4_out").output
     
     filters = mid_features.shape[-1]
-    se = layers.GlobalAveragePooling2D()(mid_features)
-    se = layers.Dense(filters // 16, activation='relu')(se)
-    se = layers.Dense(filters, activation='sigmoid')(se)
-    se = layers.Reshape((1, 1, filters))(se)
-    mid_features = layers.Multiply()([mid_features, se])
+    se =tf.keras.layers.GlobalAveragePooling2D()(mid_features)
+    se =tf.keras.layers.Dense(filters // 16, activation='relu')(se)
+    se =tf.keras.layers.Dense(filters, activation='sigmoid')(se)
+    se =tf.keras.layers.Reshape((1, 1, filters))(se)
+    mid_features =tf.keras.layers.Multiply()([mid_features, se])
 
     # 5. Hybrid Pooling & Head
-    avg_pool = layers.GlobalAveragePooling2D()(mid_features)
-    max_pool = layers.GlobalMaxPooling2D()(mid_features)
-    hybrid = layers.Concatenate(name="hybrid_pooling")([avg_pool, max_pool])
+    avg_pool =tf.keras.layers.GlobalAveragePooling2D()(mid_features)
+    max_pool =tf.keras.layers.GlobalMaxPooling2D()(mid_features)
+    hybrid =tf.keras.layers.Concatenate(name="hybrid_pooling")([avg_pool, max_pool])
     
-    x = layers.Dense(256, activation='relu')(hybrid)
-    x = layers.BatchNormalization()(x) # Added for training stability
-    x = layers.Dropout(0.3)(x) # Increased slightly for better generalization
+    x =tf.keras.layers.Dense(256, activation='relu')(hybrid)
+    x =tf.keras.layers.BatchNormalization()(x) # Added for training stability
+    x =tf.keras.layers.Dropout(0.3)(x) # Increased slightly for better generalization
     
-    output = layers.Dense(1, activation='sigmoid')(x)
+    output =tf.keras.layers.Dense(1, activation='sigmoid')(x)
     
     model = tf.keras.models.Model(inputs=img_input, outputs=output, name="resNet50V2_FASD_RGB_V6_SE_c3b4")
     return model
 
 def init_model_9(input_shape=(224, 224, 3)):
-    img_input = layers.Input(shape=input_shape)
+    img_input =tf.keras.layers.Input(shape=input_shape)
 
     augmentation = tf.keras.Sequential([
     tf.keras.layers.RandomFlip("horizontal"),
@@ -1718,28 +1717,28 @@ def init_model_9(input_shape=(224, 224, 3)):
     mid_features = base_model.get_layer("conv3_block4_out").output
     
     filters = mid_features.shape[-1]
-    se = layers.GlobalAveragePooling2D()(mid_features)
-    se = layers.Dense(filters // 16, activation='relu')(se)
-    se = layers.Dense(filters, activation='sigmoid')(se)
-    se = layers.Reshape((1, 1, filters))(se)
-    mid_features = layers.Multiply()([mid_features, se])
+    se =tf.keras.layers.GlobalAveragePooling2D()(mid_features)
+    se =tf.keras.layers.Dense(filters // 16, activation='relu')(se)
+    se =tf.keras.layers.Dense(filters, activation='sigmoid')(se)
+    se =tf.keras.layers.Reshape((1, 1, filters))(se)
+    mid_features =tf.keras.layers.Multiply()([mid_features, se])
 
     # 5. Hybrid Pooling & Head
-    avg_pool = layers.GlobalAveragePooling2D()(mid_features)
-    max_pool = layers.GlobalMaxPooling2D()(mid_features)
-    hybrid = layers.Concatenate(name="hybrid_pooling")([avg_pool, max_pool])
+    avg_pool =tf.keras.layers.GlobalAveragePooling2D()(mid_features)
+    max_pool =tf.keras.layers.GlobalMaxPooling2D()(mid_features)
+    hybrid =tf.keras.layers.Concatenate(name="hybrid_pooling")([avg_pool, max_pool])
     
-    x = layers.Dense(256, activation='relu')(hybrid)
-    x = layers.BatchNormalization()(x) # Added for training stability
-    x = layers.Dropout(0.3)(x) # Increased slightly for better generalization
+    x =tf.keras.layers.Dense(256, activation='relu')(hybrid)
+    x =tf.keras.layers.BatchNormalization()(x) # Added for training stability
+    x =tf.keras.layers.Dropout(0.3)(x) # Increased slightly for better generalization
     
-    output = layers.Dense(1, activation='sigmoid')(x)
+    output =tf.keras.layers.Dense(1, activation='sigmoid')(x)
     
     model = tf.keras.models.Model(inputs=img_input, outputs=output, name="resNet50V2_FASD_RGB_V6_SE_c3b5")
     return model
     
 def init_model_5(input_shape=(224, 224, 3)):
-    img_input = layers.Input(shape=input_shape)
+    img_input =tf.keras.layers.Input(shape=input_shape)
 
     x = augmentation(img_input)
 
@@ -1752,21 +1751,21 @@ def init_model_5(input_shape=(224, 224, 3)):
     
     mid_features = base_model.get_layer("block2d_add").output
     
-    avg_pool = layers.GlobalAveragePooling2D()(mid_features)
-    max_pool = layers.GlobalMaxPooling2D()(mid_features)
-    hybrid = layers.Concatenate(name="hybrid_pooling")([avg_pool, max_pool])
+    avg_pool =tf.keras.layers.GlobalAveragePooling2D()(mid_features)
+    max_pool =tf.keras.layers.GlobalMaxPooling2D()(mid_features)
+    hybrid =tf.keras.layers.Concatenate(name="hybrid_pooling")([avg_pool, max_pool])
     
-    x = layers.Dense(256, activation='relu')(hybrid)
-    x = layers.BatchNormalization()(x) # Added for training stability
-    x = layers.Dropout(0.3)(x) # Increased slightly for better generalization
+    x =tf.keras.layers.Dense(256, activation='relu')(hybrid)
+    x =tf.keras.layers.BatchNormalization()(x) # Added for training stability
+    x =tf.keras.layers.Dropout(0.3)(x) # Increased slightly for better generalization
     
-    output = layers.Dense(1, activation='sigmoid')(x)
+    output =tf.keras.layers.Dense(1, activation='sigmoid')(x)
     
     model = tf.keras.models.Model(inputs=img_input, outputs=output, name="EfficientNetV2S_FASD_RGB_V1_block2d")
     return model
 
 def init_model_6(input_shape=(224, 224, 3)):
-    img_input = layers.Input(shape=input_shape)
+    img_input =tf.keras.layers.Input(shape=input_shape)
 
     x = augmentation(img_input)
 
@@ -1779,21 +1778,21 @@ def init_model_6(input_shape=(224, 224, 3)):
     
     mid_features = base_model.get_layer("block3d_add").output
     
-    avg_pool = layers.GlobalAveragePooling2D()(mid_features)
-    max_pool = layers.GlobalMaxPooling2D()(mid_features)
-    hybrid = layers.Concatenate(name="hybrid_pooling")([avg_pool, max_pool])
+    avg_pool =tf.keras.layers.GlobalAveragePooling2D()(mid_features)
+    max_pool =tf.keras.layers.GlobalMaxPooling2D()(mid_features)
+    hybrid =tf.keras.layers.Concatenate(name="hybrid_pooling")([avg_pool, max_pool])
     
-    x = layers.Dense(256, activation='relu')(hybrid)
-    x = layers.BatchNormalization()(x) # Added for training stability
-    x = layers.Dropout(0.3)(x) # Increased slightly for better generalization
+    x =tf.keras.layers.Dense(256, activation='relu')(hybrid)
+    x =tf.keras.layers.BatchNormalization()(x) # Added for training stability
+    x =tf.keras.layers.Dropout(0.3)(x) # Increased slightly for better generalization
     
-    output = layers.Dense(1, activation='sigmoid')(x)
+    output =tf.keras.layers.Dense(1, activation='sigmoid')(x)
     
     model = tf.keras.models.Model(inputs=img_input, outputs=output, name="EfficientNetV2S_FASD_RGB_V1_block3d")
     return model
 
 def init_model_7(input_shape=(224, 224, 3)):
-    img_input = layers.Input(shape=input_shape)
+    img_input =tf.keras.layers.Input(shape=input_shape)
 
     x = augmentation(img_input)
 
@@ -1806,21 +1805,21 @@ def init_model_7(input_shape=(224, 224, 3)):
     
     mid_features = base_model.get_layer("block4d_add").output
     
-    avg_pool = layers.GlobalAveragePooling2D()(mid_features)
-    max_pool = layers.GlobalMaxPooling2D()(mid_features)
-    hybrid = layers.Concatenate(name="hybrid_pooling")([avg_pool, max_pool])
+    avg_pool =tf.keras.layers.GlobalAveragePooling2D()(mid_features)
+    max_pool =tf.keras.layers.GlobalMaxPooling2D()(mid_features)
+    hybrid =tf.keras.layers.Concatenate(name="hybrid_pooling")([avg_pool, max_pool])
     
-    x = layers.Dense(256, activation='relu')(hybrid)
-    x = layers.BatchNormalization()(x) # Added for training stability
-    x = layers.Dropout(0.3)(x) # Increased slightly for better generalization
+    x =tf.keras.layers.Dense(256, activation='relu')(hybrid)
+    x =tf.keras.layers.BatchNormalization()(x) # Added for training stability
+    x =tf.keras.layers.Dropout(0.3)(x) # Increased slightly for better generalization
     
-    output = layers.Dense(1, activation='sigmoid')(x)
+    output =tf.keras.layers.Dense(1, activation='sigmoid')(x)
     
     model = tf.keras.models.Model(inputs=img_input, outputs=output, name="EfficientNetV2S_FASD_RGB_V1_block4d")
     return model
 
 def init_resNet50V2_FASD_RGB_V8(input_shape=(224, 224, 3)):
-    img_input = layers.Input(shape=input_shape)
+    img_input =tf.keras.layers.Input(shape=input_shape)
     
     # 1. Advanced Augmentation: Strictly prevents "cheating" on background edges
     augmentation = tf.keras.Sequential([
@@ -1844,11 +1843,11 @@ def init_resNet50V2_FASD_RGB_V8(input_shape=(224, 224, 3)):
     # 4. Squeeze-and-Excitation (SE) on both scales
     def apply_se(tensor, ratio=16):
         f = tensor.shape[-1]
-        se = layers.GlobalAveragePooling2D()(tensor)
-        se = layers.Dense(f // ratio, activation='relu')(se)
-        se = layers.Dense(f, activation='sigmoid')(se)
-        se = layers.Reshape((1, 1, f))(se)
-        return layers.Multiply()([tensor, se])
+        se =tf.keras.layers.GlobalAveragePooling2D()(tensor)
+        se =tf.keras.layers.Dense(f // ratio, activation='relu')(se)
+        se =tf.keras.layers.Dense(f, activation='sigmoid')(se)
+        se =tf.keras.layers.Reshape((1, 1, f))(se)
+        return tf.keras.layers.Multiply()([tensor, se])
 
 
     mid_features = apply_se(mid_features)
@@ -1856,28 +1855,28 @@ def init_resNet50V2_FASD_RGB_V8(input_shape=(224, 224, 3)):
     # 5. Hybrid Global Fusion
     # We pool both scales to ensure global context and local anomalies are captured
     
-    mid_pool = layers.Concatenate()([
-        layers.GlobalAveragePooling2D()(mid_features),
-        layers.GlobalMaxPooling2D()(mid_features)
+    mid_pool =tf.keras.layers.Concatenate()([
+       tf.keras.layers.GlobalAveragePooling2D()(mid_features),
+       tf.keras.layers.GlobalMaxPooling2D()(mid_features)
     ])
 
     # 6. Dense Integration Head
     
     
-    x = layers.Dense(512, activation='swish')(mid_pool) # Swish often helps deeper convergence
-    x = layers.BatchNormalization()(x)
-    x = layers.Dropout(0.5)(x)
+    x =tf.keras.layers.Dense(512, activation='swish')(mid_pool) # Swish often helps deeper convergence
+    x =tf.keras.layers.BatchNormalization()(x)
+    x =tf.keras.layers.Dropout(0.5)(x)
     
-    x = layers.Dense(128, activation='swish')(x)
-    x = layers.Dropout(0.3)(x)
+    x =tf.keras.layers.Dense(128, activation='swish')(x)
+    x =tf.keras.layers.Dropout(0.3)(x)
     
-    output = layers.Dense(1, activation='sigmoid')(x)
+    output =tf.keras.layers.Dense(1, activation='sigmoid')(x)
     
-    model = models.Model(inputs=img_input, outputs=output, name="resNet50V2_FASD_RGB_V8")
+    model =tf.keras.models.Model(inputs=img_input, outputs=output, name="resNet50V2_FASD_RGB_V8")
     return model
 
 def init_resNet50V2_FASD_RGB_V8_1(input_shape=(224, 224, 3)):
-    img_input = layers.Input(shape=input_shape)
+    img_input =tf.keras.layers.Input(shape=input_shape)
     
     # 1. Advanced Augmentation: Strictly prevents "cheating" on background edges
     augmentation = tf.keras.Sequential([
@@ -1905,11 +1904,11 @@ def init_resNet50V2_FASD_RGB_V8_1(input_shape=(224, 224, 3)):
     # 4. Squeeze-and-Excitation (SE) on both scales
     def apply_se(tensor, ratio=16):
         f = tensor.shape[-1]
-        se = layers.GlobalAveragePooling2D()(tensor)
-        se = layers.Dense(f // ratio, activation='relu')(se)
-        se = layers.Dense(f, activation='sigmoid')(se)
-        se = layers.Reshape((1, 1, f))(se)
-        return layers.Multiply()([tensor, se])
+        se =tf.keras.layers.GlobalAveragePooling2D()(tensor)
+        se =tf.keras.layers.Dense(f // ratio, activation='relu')(se)
+        se =tf.keras.layers.Dense(f, activation='sigmoid')(se)
+        se =tf.keras.layers.Reshape((1, 1, f))(se)
+        return tf.keras.layers.Multiply()([tensor, se])
 
 
     low_features = apply_se(low_features)
@@ -1917,33 +1916,33 @@ def init_resNet50V2_FASD_RGB_V8_1(input_shape=(224, 224, 3)):
 
     # 5. Hybrid Global Fusion
     # We pool both scales to ensure global context and local anomalies are captured
-    low_pool = layers.Concatenate()([
-        layers.GlobalAveragePooling2D()(low_features),
-        layers.GlobalMaxPooling2D()(low_features)
+    low_pool =tf.keras.layers.Concatenate()([
+       tf.keras.layers.GlobalAveragePooling2D()(low_features),
+       tf.keras.layers.GlobalMaxPooling2D()(low_features)
     ])
     
-    mid_pool = layers.Concatenate()([
-        layers.GlobalAveragePooling2D()(mid_features),
-        layers.GlobalMaxPooling2D()(mid_features)
+    mid_pool =tf.keras.layers.Concatenate()([
+       tf.keras.layers.GlobalAveragePooling2D()(mid_features),
+       tf.keras.layers.GlobalMaxPooling2D()(mid_features)
     ])
 
     # 6. Dense Integration Head
-    combined = layers.Concatenate()([low_pool, mid_pool])
+    combined =tf.keras.layers.Concatenate()([low_pool, mid_pool])
     
-    x = layers.Dense(512, activation='swish')(combined) # Swish often helps deeper convergence
-    x = layers.BatchNormalization()(x)
-    x = layers.Dropout(0.5)(x)
+    x =tf.keras.layers.Dense(512, activation='swish')(combined) # Swish often helps deeper convergence
+    x =tf.keras.layers.BatchNormalization()(x)
+    x =tf.keras.layers.Dropout(0.5)(x)
     
-    x = layers.Dense(128, activation='swish')(x)
-    x = layers.Dropout(0.3)(x)
+    x =tf.keras.layers.Dense(128, activation='swish')(x)
+    x =tf.keras.layers.Dropout(0.3)(x)
     
-    output = layers.Dense(1, activation='sigmoid')(x)
+    output =tf.keras.layers.Dense(1, activation='sigmoid')(x)
     
-    model = models.Model(inputs=img_input, outputs=output, name="resNet50V2_FASD_RGB_V8_features_from_c2_and_c3")
+    model =tf.keras.models.Model(inputs=img_input, outputs=output, name="resNet50V2_FASD_RGB_V8_features_from_c2_and_c3")
     return model
 
 def init_resNet50V2_FASD_RGB_V8_2(input_shape=(224, 224, 3)):
-    img_input = layers.Input(shape=input_shape)
+    img_input = tf.keras.layers.Input(shape=input_shape)
     
     # 1. Advanced Augmentation: Strictly prevents "cheating" on background edges
     augmentation = tf.keras.Sequential([
@@ -1972,11 +1971,11 @@ def init_resNet50V2_FASD_RGB_V8_2(input_shape=(224, 224, 3)):
     # 4. Squeeze-and-Excitation (SE) on both scales
     def apply_se(tensor, ratio=16):
         f = tensor.shape[-1]
-        se = layers.GlobalAveragePooling2D()(tensor)
-        se = layers.Dense(f // ratio, activation='relu')(se)
-        se = layers.Dense(f, activation='sigmoid')(se)
-        se = layers.Reshape((1, 1, f))(se)
-        return layers.Multiply()([tensor, se])
+        se = tf.keras.layers.GlobalAveragePooling2D()(tensor)
+        se = tf.keras.layers.Dense(f // ratio, activation='relu')(se)
+        se = tf.keras.layers.Dense(f, activation='sigmoid')(se)
+        se = tf.keras.layers.Reshape((1, 1, f))(se)
+        return tf.keras.layers.Multiply()([tensor, se])
 
 
     mid_features = apply_se(mid_features)
@@ -1984,30 +1983,30 @@ def init_resNet50V2_FASD_RGB_V8_2(input_shape=(224, 224, 3)):
     # 5. Hybrid Global Fusion
     # We pool both scales to ensure global context and local anomalies are captured
     
-    mid_pool = layers.Concatenate()([
-        layers.GlobalAveragePooling2D()(mid_features),
-        layers.GlobalMaxPooling2D()(mid_features)
+    mid_pool = tf.keras.layers.Concatenate()([
+        tf.keras.layers.GlobalAveragePooling2D()(mid_features),
+        tf.keras.layers.GlobalMaxPooling2D()(mid_features)
     ])
 
     # 6. Dense Integration Head
     
     
-    x = layers.Dense(512, activation='swish')(mid_pool) # Swish often helps deeper convergence
-    x = layers.BatchNormalization()(x)
-    x = layers.Dropout(0.5)(x)
+    x = tf.keras.layers.Dense(512, activation='swish')(mid_pool) # Swish often helps deeper convergence
+    x = tf.keras.layers.BatchNormalization()(x)
+    x = tf.keras.layers.Dropout(0.5)(x)
     
-    x = layers.Dense(128, activation='swish')(x)
-    x = layers.Dropout(0.3)(x)
+    x = tf.keras.layers.Dense(128, activation='swish')(x)
+    x = tf.keras.layers.Dropout(0.3)(x)
     
-    output = layers.Dense(1, activation='sigmoid')(x)
+    output = tf.keras.layers.Dense(1, activation='sigmoid')(x)
     
-    model = models.Model(inputs=img_input, outputs=output, name="resNet50V2_FASD_RGB_V8_RandomErasing")
+    model = tf.keras.Model(inputs=img_input, outputs=output, name="resNet50V2_FASD_RGB_V8_RandomErasing")
     return model
 
 
 
 def init_resNet50V2_FASD_RGB_V8_3(input_shape=(224, 224, 3)):
-    img_input = layers.Input(shape=input_shape)
+    img_input = tf.keras.layers.Input(shape=input_shape)
     
     # 1. Advanced Augmentation: Strictly prevents "cheating" on background edges
     augmentation = tf.keras.Sequential([
@@ -2037,11 +2036,11 @@ def init_resNet50V2_FASD_RGB_V8_3(input_shape=(224, 224, 3)):
     # 4. Squeeze-and-Excitation (SE) on both scales
     def apply_se(tensor, ratio=16):
         f = tensor.shape[-1]
-        se = layers.GlobalAveragePooling2D()(tensor)
-        se = layers.Dense(f // ratio, activation='relu')(se)
-        se = layers.Dense(f, activation='sigmoid')(se)
-        se = layers.Reshape((1, 1, f))(se)
-        return layers.Multiply()([tensor, se])
+        se = tf.keras.layers.GlobalAveragePooling2D()(tensor)
+        se = tf.keras.layers.Dense(f // ratio, activation='relu')(se)
+        se = tf.keras.layers.Dense(f, activation='sigmoid')(se)
+        se = tf.keras.layers.Reshape((1, 1, f))(se)
+        return tf.keras.layers.Multiply()([tensor, se])
 
 
     mid_features = apply_se(mid_features)
@@ -2049,34 +2048,34 @@ def init_resNet50V2_FASD_RGB_V8_3(input_shape=(224, 224, 3)):
     # 5. Hybrid Global Fusion
     # We pool both scales to ensure global context and local anomalies are captured
     
-    mid_pool = layers.Concatenate()([
-        layers.GlobalAveragePooling2D()(mid_features),
-        layers.GlobalMaxPooling2D()(mid_features)
+    mid_pool = tf.keras.layers.Concatenate()([
+        tf.keras.layers.GlobalAveragePooling2D()(mid_features),
+        tf.keras.layers.GlobalMaxPooling2D()(mid_features)
     ])
 
-    high_pool = layers.Concatenate()([
-        layers.GlobalAveragePooling2D()(high_features),
-        layers.GlobalMaxPooling2D()(high_features)
+    high_pool = tf.keras.layers.Concatenate()([
+        tf.keras.layers.GlobalAveragePooling2D()(high_features),
+        tf.keras.layers.GlobalMaxPooling2D()(high_features)
     ])
-    combined = layers.Concatenate()([mid_pool, high_pool])
+    combined = tf.keras.layers.Concatenate()([mid_pool, high_pool])
 
     # 6. Dense Integration Head
     
     
-    x = layers.Dense(512, activation='swish')(combined) # Swish often helps deeper convergence
-    x = layers.BatchNormalization()(x)
-    x = layers.Dropout(0.5)(x)
+    x = tf.keras.layers.Dense(512, activation='swish')(combined) # Swish often helps deeper convergence
+    x = tf.keras.layers.BatchNormalization()(x)
+    x = tf.keras.layers.Dropout(0.5)(x)
     
-    x = layers.Dense(128, activation='swish')(x)
-    x = layers.Dropout(0.3)(x)
+    x = tf.keras.layers.Dense(128, activation='swish')(x)
+    x = tf.keras.layers.Dropout(0.3)(x)
     
-    output = layers.Dense(1, activation='sigmoid')(x)
+    output = tf.keras.layers.Dense(1, activation='sigmoid')(x)
     
-    model = models.Model(inputs=img_input, outputs=output, name="resNet50V2_FASD_RGB_V8_RandomErasing_features_from_c3b3_and_c3b4")
+    model = tf.keras.Model(inputs=img_input, outputs=output, name="resNet50V2_FASD_RGB_V8_RandomErasing_features_from_c3b3_and_c3b4")
     return model
 
 def init_resNet50V2_FASD_RGB_V8_4(input_shape=(224, 224, 3)):
-    img_input = layers.Input(shape=input_shape)
+    img_input = tf.keras.layers.Input(shape=input_shape)
     
     # 1. Advanced Augmentation: Strictly prevents "cheating" on background edges
     augmentation = tf.keras.Sequential([
@@ -2106,11 +2105,11 @@ def init_resNet50V2_FASD_RGB_V8_4(input_shape=(224, 224, 3)):
     # 4. Squeeze-and-Excitation (SE) on both scales
     def apply_se(tensor, ratio=16):
         f = tensor.shape[-1]
-        se = layers.GlobalAveragePooling2D()(tensor)
-        se = layers.Dense(f // ratio, activation='relu')(se)
-        se = layers.Dense(f, activation='sigmoid')(se)
-        se = layers.Reshape((1, 1, f))(se)
-        return layers.Multiply()([tensor, se])
+        se = tf.keras.layers.GlobalAveragePooling2D()(tensor)
+        se = tf.keras.layers.Dense(f // ratio, activation='relu')(se)
+        se = tf.keras.layers.Dense(f, activation='sigmoid')(se)
+        se = tf.keras.layers.Reshape((1, 1, f))(se)
+        return tf.keras.layers.Multiply()([tensor, se])
 
 
     mid_features = apply_se(mid_features)
@@ -2118,35 +2117,35 @@ def init_resNet50V2_FASD_RGB_V8_4(input_shape=(224, 224, 3)):
     # 5. Hybrid Global Fusion
     # We pool both scales to ensure global context and local anomalies are captured
     
-    mid_pool = layers.Concatenate()([
-        layers.GlobalAveragePooling2D()(mid_features),
-        layers.GlobalMaxPooling2D()(mid_features)
+    mid_pool = tf.keras.layers.Concatenate()([
+        tf.keras.layers.GlobalAveragePooling2D()(mid_features),
+        tf.keras.layers.GlobalMaxPooling2D()(mid_features)
     ])
 
-    high_pool = layers.Concatenate()([
-        layers.GlobalAveragePooling2D()(high_features),
-        layers.GlobalMaxPooling2D()(high_features)
+    high_pool = tf.keras.layers.Concatenate()([
+        tf.keras.layers.GlobalAveragePooling2D()(high_features),
+        tf.keras.layers.GlobalMaxPooling2D()(high_features)
     ])
-    combined = layers.Concatenate()([mid_pool, high_pool])
+    combined = tf.keras.layers.Concatenate()([mid_pool, high_pool])
 
     # 6. Dense Integration Head
     
     
-    x = layers.Dense(512, activation='swish')(combined) # Swish often helps deeper convergence
-    x = layers.BatchNormalization()(x)
-    x = layers.Dropout(0.5)(x)
+    x = tf.keras.layers.Dense(512, activation='swish')(combined) # Swish often helps deeper convergence
+    x = tf.keras.layers.BatchNormalization()(x)
+    x = tf.keras.layers.Dropout(0.5)(x)
     
-    x = layers.Dense(128, activation='swish')(x)
-    x = layers.Dropout(0.3)(x)
+    x = tf.keras.layers.Dense(128, activation='swish')(x)
+    x = tf.keras.layers.Dropout(0.3)(x)
     
-    output = layers.Dense(1, activation='sigmoid')(x)
+    output = tf.keras.layers.Dense(1, activation='sigmoid')(x)
     
-    model = models.Model(inputs=img_input, outputs=output, name="resNet50V2_FASD_RGB_V8_RandomErasing_features_from_c3b3_and_c4b1")
+    model = tf.keras.Model(inputs=img_input, outputs=output, name="resNet50V2_FASD_RGB_V8_RandomErasing_features_from_c3b3_and_c4b1")
     return model
 
 
 def init_resNet50V2_FASD_RGB_V8_5(input_shape=(224, 224, 3)):
-    img_input = layers.Input(shape=input_shape)
+    img_input = tf.keras.layers.Input(shape=input_shape)
     
     # 1. Advanced Augmentation: Strictly prevents "cheating" on background edges
     augmentation = tf.keras.Sequential([
@@ -2175,11 +2174,11 @@ def init_resNet50V2_FASD_RGB_V8_5(input_shape=(224, 224, 3)):
     # 4. Squeeze-and-Excitation (SE) on both scales
     def apply_se(tensor, ratio=16):
         f = tensor.shape[-1]
-        se = layers.GlobalAveragePooling2D()(tensor)
-        se = layers.Dense(f // ratio, activation='relu')(se)
-        se = layers.Dense(f, activation='sigmoid')(se)
-        se = layers.Reshape((1, 1, f))(se)
-        return layers.Multiply()([tensor, se])
+        se = tf.keras.layers.GlobalAveragePooling2D()(tensor)
+        se = tf.keras.layers.Dense(f // ratio, activation='relu')(se)
+        se = tf.keras.layers.Dense(f, activation='sigmoid')(se)
+        se = tf.keras.layers.Reshape((1, 1, f))(se)
+        return tf.keras.layers.Multiply()([tensor, se])
 
 
     mid_features = apply_se(mid_features)
@@ -2187,28 +2186,28 @@ def init_resNet50V2_FASD_RGB_V8_5(input_shape=(224, 224, 3)):
     # 5. Hybrid Global Fusion
     # We pool both scales to ensure global context and local anomalies are captured
     
-    mid_pool = layers.Concatenate()([
-        layers.GlobalAveragePooling2D()(mid_features),
-        layers.GlobalMaxPooling2D()(mid_features)
+    mid_pool = tf.keras.layers.Concatenate()([
+        tf.keras.layers.GlobalAveragePooling2D()(mid_features),
+        tf.keras.layers.GlobalMaxPooling2D()(mid_features)
     ])
 
     # 6. Dense Integration Head
     
     
-    x = layers.Dense(256, activation='swish')(mid_pool) # Swish often helps deeper convergence
-    x = layers.BatchNormalization()(x)
-    x = layers.Dropout(0.3)(x)
+    x = tf.keras.layers.Dense(256, activation='swish')(mid_pool) # Swish often helps deeper convergence
+    x = tf.keras.layers.BatchNormalization()(x)
+    x = tf.keras.layers.Dropout(0.3)(x)
     
-    # x = layers.Dense(128, activation='swish')(x)
-    # x = layers.Dropout(0.3)(x)
+    # x = tf.keras.layers.Dense(128, activation='swish')(x)
+    # x = tf.keras.layers.Dropout(0.3)(x)
     
-    output = layers.Dense(1, activation='sigmoid')(x)
+    output = tf.keras.layers.Dense(1, activation='sigmoid')(x)
     
-    model = models.Model(inputs=img_input, outputs=output, name="resNet50V2_FASD_RGB_V8_RandomErasing_light_classifier")
+    model = tf.keras.Model(inputs=img_input, outputs=output, name="resNet50V2_FASD_RGB_V8_RandomErasing_light_classifier")
     return model
 
 def init_resNet50V2_FASD_RGB_V8_6(input_shape=(224, 224, 3)):
-    img_input = layers.Input(shape=input_shape)
+    img_input = tf.keras.layers.Input(shape=input_shape)
     
     # 1. Advanced Augmentation: Strictly prevents "cheating" on background edges
     augmentation = tf.keras.Sequential([
@@ -2242,11 +2241,11 @@ def init_resNet50V2_FASD_RGB_V8_6(input_shape=(224, 224, 3)):
     # 4. Squeeze-and-Excitation (SE) on both scales
     def apply_se(tensor, ratio=16):
         f = tensor.shape[-1]
-        se = layers.GlobalAveragePooling2D()(tensor)
-        se = layers.Dense(f // ratio, activation='relu')(se)
-        se = layers.Dense(f, activation='sigmoid')(se)
-        se = layers.Reshape((1, 1, f))(se)
-        return layers.Multiply()([tensor, se])
+        se = tf.keras.layers.GlobalAveragePooling2D()(tensor)
+        se = tf.keras.layers.Dense(f // ratio, activation='relu')(se)
+        se = tf.keras.layers.Dense(f, activation='sigmoid')(se)
+        se = tf.keras.layers.Reshape((1, 1, f))(se)
+        return tf.keras.layers.Multiply()([tensor, se])
 
 
     mid_features = apply_se(mid_features)
@@ -2254,29 +2253,29 @@ def init_resNet50V2_FASD_RGB_V8_6(input_shape=(224, 224, 3)):
     # 5. Hybrid Global Fusion
     # We pool both scales to ensure global context and local anomalies are captured
     
-    mid_pool = layers.Concatenate()([
-        layers.GlobalAveragePooling2D()(mid_features),
-        layers.GlobalMaxPooling2D()(mid_features)
+    mid_pool = tf.keras.layers.Concatenate()([
+        tf.keras.layers.GlobalAveragePooling2D()(mid_features),
+        tf.keras.layers.GlobalMaxPooling2D()(mid_features)
     ])
 
     # 6. Dense Integration Head
     
     
-    x = layers.Dense(512, activation='swish')(mid_pool) # Swish often helps deeper convergence
-    x = layers.BatchNormalization()(x)
-    x = layers.Dropout(0.5)(x)
+    x = tf.keras.layers.Dense(512, activation='swish')(mid_pool) # Swish often helps deeper convergence
+    x = tf.keras.layers.BatchNormalization()(x)
+    x = tf.keras.layers.Dropout(0.5)(x)
     
-    x = layers.Dense(128, activation='swish')(x)
-    x = layers.Dropout(0.3)(x)
+    x = tf.keras.layers.Dense(128, activation='swish')(x)
+    x = tf.keras.layers.Dropout(0.3)(x)
     
-    output = layers.Dense(1, activation='sigmoid')(x)
+    output = tf.keras.layers.Dense(1, activation='sigmoid')(x)
     
-    model = models.Model(inputs=img_input, outputs=output, name="resNet50V2_FASD_RGB_V8_2xRandomErasing")
+    model = tf.keras.Model(inputs=img_input, outputs=output, name="resNet50V2_FASD_RGB_V8_2xRandomErasing")
     return model
 
 
 def init_resNet50V2_FASD_RGB_V8_7(input_shape=(224, 224, 3)):
-    img_input = layers.Input(shape=input_shape)
+    img_input = tf.keras.layers.Input(shape=input_shape)
     
     # 1. Advanced Augmentation: Strictly prevents "cheating" on background edges
     augmentation = tf.keras.Sequential([
@@ -2304,11 +2303,11 @@ def init_resNet50V2_FASD_RGB_V8_7(input_shape=(224, 224, 3)):
     # 4. Squeeze-and-Excitation (SE) on both scales
     def apply_se(tensor, ratio=16):
         f = tensor.shape[-1]
-        se = layers.GlobalAveragePooling2D()(tensor)
-        se = layers.Dense(f // ratio, activation='relu')(se)
-        se = layers.Dense(f, activation='sigmoid')(se)
-        se = layers.Reshape((1, 1, f))(se)
-        return layers.Multiply()([tensor, se])
+        se = tf.keras.layers.GlobalAveragePooling2D()(tensor)
+        se = tf.keras.layers.Dense(f // ratio, activation='relu')(se)
+        se = tf.keras.layers.Dense(f, activation='sigmoid')(se)
+        se = tf.keras.layers.Reshape((1, 1, f))(se)
+        return tf.keras.layers.Multiply()([tensor, se])
 
 
     mid_features = apply_se(mid_features)
@@ -2316,28 +2315,28 @@ def init_resNet50V2_FASD_RGB_V8_7(input_shape=(224, 224, 3)):
     # 5. Hybrid Global Fusion
     # We pool both scales to ensure global context and local anomalies are captured
     
-    mid_pool = layers.Concatenate()([
-        layers.GlobalAveragePooling2D()(mid_features),
-        layers.GlobalMaxPooling2D()(mid_features)
+    mid_pool = tf.keras.layers.Concatenate()([
+        tf.keras.layers.GlobalAveragePooling2D()(mid_features),
+        tf.keras.layers.GlobalMaxPooling2D()(mid_features)
     ])
 
     # 6. Dense Integration Head
     
     
-    x = layers.Dense(512, activation='relu')(mid_pool) 
-    x = layers.BatchNormalization()(x)
-    x = layers.Dropout(0.5)(x)
+    x = tf.keras.layers.Dense(512, activation='relu')(mid_pool) 
+    x = tf.keras.layers.BatchNormalization()(x)
+    x = tf.keras.layers.Dropout(0.5)(x)
     
-    x = layers.Dense(128, activation='relu')(x)
-    x = layers.Dropout(0.3)(x)
+    x = tf.keras.layers.Dense(128, activation='relu')(x)
+    x = tf.keras.layers.Dropout(0.3)(x)
     
-    output = layers.Dense(1, activation='sigmoid')(x)
+    output = tf.keras.layers.Dense(1, activation='sigmoid')(x)
     
-    model = models.Model(inputs=img_input, outputs=output, name="resNet50V2_FASD_RGB_V8_RandomErasing_relu_classifier")
+    model = tf.keras.Model(inputs=img_input, outputs=output, name="resNet50V2_FASD_RGB_V8_RandomErasing_relu_classifier")
     return model
 
 def init_resNet50V2_FASD_RGB_V8_8(input_shape=(224, 224, 3)):
-    img_input = layers.Input(shape=input_shape)
+    img_input = tf.keras.layers.Input(shape=input_shape)
     
     # 1. Advanced Augmentation: Strictly prevents "cheating" on background edges
     augmentation = tf.keras.Sequential([
@@ -2365,11 +2364,11 @@ def init_resNet50V2_FASD_RGB_V8_8(input_shape=(224, 224, 3)):
     # 4. Squeeze-and-Excitation (SE) on both scales
     def apply_se(tensor, ratio=16):
         f = tensor.shape[-1]
-        se = layers.GlobalAveragePooling2D()(tensor)
-        se = layers.Dense(f // ratio, activation='relu')(se)
-        se = layers.Dense(f, activation='sigmoid')(se)
-        se = layers.Reshape((1, 1, f))(se)
-        return layers.Multiply()([tensor, se])
+        se = tf.keras.layers.GlobalAveragePooling2D()(tensor)
+        se = tf.keras.layers.Dense(f // ratio, activation='relu')(se)
+        se = tf.keras.layers.Dense(f, activation='sigmoid')(se)
+        se = tf.keras.layers.Reshape((1, 1, f))(se)
+        return tf.keras.layers.Multiply()([tensor, se])
 
 
     mid_features = apply_se(mid_features)
@@ -2377,28 +2376,28 @@ def init_resNet50V2_FASD_RGB_V8_8(input_shape=(224, 224, 3)):
     # 5. Hybrid Global Fusion
     # We pool both scales to ensure global context and local anomalies are captured
     
-    mid_pool = layers.Concatenate()([
-        layers.GlobalAveragePooling2D()(mid_features),
-        layers.GlobalMaxPooling2D()(mid_features)
+    mid_pool = tf.keras.layers.Concatenate()([
+        tf.keras.layers.GlobalAveragePooling2D()(mid_features),
+        tf.keras.layers.GlobalMaxPooling2D()(mid_features)
     ])
 
     # 6. Dense Integration Head
     
     
-    x = layers.Dense(512, activation='swish')(mid_pool) 
-    x = layers.BatchNormalization()(x)
-    x = layers.Dropout(0.5)(x)
+    x = tf.keras.layers.Dense(512, activation='swish')(mid_pool) 
+    x = tf.keras.layers.BatchNormalization()(x)
+    x = tf.keras.layers.Dropout(0.5)(x)
     
-    x = layers.Dense(128, activation='swish')(x)
-    x = layers.Dropout(0.3)(x)
+    x = tf.keras.layers.Dense(128, activation='swish')(x)
+    x = tf.keras.layers.Dropout(0.3)(x)
     
-    output = layers.Dense(1, activation='sigmoid')(x)
+    output = tf.keras.layers.Dense(1, activation='sigmoid')(x)
     
-    model = models.Model(inputs=img_input, outputs=output, name="resNet50V2_FASD_RGB_V8_7probRandomErasing")
+    model = tf.keras.Model(inputs=img_input, outputs=output, name="resNet50V2_FASD_RGB_V8_7probRandomErasing")
     return model
 
 def init_resNet50V2_FASD_RGB_V8_9(input_shape=(224, 224, 3)):
-    img_input = layers.Input(shape=input_shape)
+    img_input = tf.keras.layers.Input(shape=input_shape)
     
     # 1. Advanced Augmentation: Strictly prevents "cheating" on background edges
     augmentation = tf.keras.Sequential([
@@ -2426,11 +2425,11 @@ def init_resNet50V2_FASD_RGB_V8_9(input_shape=(224, 224, 3)):
     # 4. Squeeze-and-Excitation (SE) on both scales
     def apply_se(tensor, ratio=16):
         f = tensor.shape[-1]
-        se = layers.GlobalAveragePooling2D()(tensor)
-        se = layers.Dense(f // ratio, activation='relu')(se)
-        se = layers.Dense(f, activation='sigmoid')(se)
-        se = layers.Reshape((1, 1, f))(se)
-        return layers.Multiply()([tensor, se])
+        se = tf.keras.layers.GlobalAveragePooling2D()(tensor)
+        se = tf.keras.layers.Dense(f // ratio, activation='relu')(se)
+        se = tf.keras.layers.Dense(f, activation='sigmoid')(se)
+        se = tf.keras.layers.Reshape((1, 1, f))(se)
+        return tf.keras.layers.Multiply()([tensor, se])
 
 
     mid_features = apply_se(mid_features)
@@ -2438,28 +2437,28 @@ def init_resNet50V2_FASD_RGB_V8_9(input_shape=(224, 224, 3)):
     # 5. Hybrid Global Fusion
     # We pool both scales to ensure global context and local anomalies are captured
     
-    mid_pool = layers.Concatenate()([
-        layers.GlobalAveragePooling2D()(mid_features),
-        layers.GlobalMaxPooling2D()(mid_features)
+    mid_pool = tf.keras.layers.Concatenate()([
+        tf.keras.layers.GlobalAveragePooling2D()(mid_features),
+        tf.keras.layers.GlobalMaxPooling2D()(mid_features)
     ])
 
     # 6. Dense Integration Head
     
     
-    x = layers.Dense(512, activation='swish')(mid_pool) 
-    x = layers.BatchNormalization()(x)
-    x = layers.Dropout(0.5)(x)
+    x = tf.keras.layers.Dense(512, activation='swish')(mid_pool) 
+    x = tf.keras.layers.BatchNormalization()(x)
+    x = tf.keras.layers.Dropout(0.5)(x)
     
-    x = layers.Dense(128, activation='swish')(x)
-    x = layers.Dropout(0.3)(x)
+    x = tf.keras.layers.Dense(128, activation='swish')(x)
+    x = tf.keras.layers.Dropout(0.3)(x)
     
-    output = layers.Dense(1, activation='sigmoid')(x)
+    output = tf.keras.layers.Dense(1, activation='sigmoid')(x)
     
-    model = models.Model(inputs=img_input, outputs=output, name="resNet50V2_FASD_RGB_V8_aug1")
+    model = tf.keras.Model(inputs=img_input, outputs=output, name="resNet50V2_FASD_RGB_V8_aug1")
     return model
 
 def init_resNet50V2_FASD_RGB_V8_10(input_shape=(224, 224, 3)):
-    img_input = layers.Input(shape=input_shape)
+    img_input = tf.keras.layers.Input(shape=input_shape)
     
     # 1. Advanced Augmentation: Strictly prevents "cheating" on background edges
     augmentation = tf.keras.Sequential([
@@ -2487,11 +2486,11 @@ def init_resNet50V2_FASD_RGB_V8_10(input_shape=(224, 224, 3)):
     # 4. Squeeze-and-Excitation (SE) on both scales
     def apply_se(tensor, ratio=16):
         f = tensor.shape[-1]
-        se = layers.GlobalAveragePooling2D()(tensor)
-        se = layers.Dense(f // ratio, activation='relu')(se)
-        se = layers.Dense(f, activation='sigmoid')(se)
-        se = layers.Reshape((1, 1, f))(se)
-        return layers.Multiply()([tensor, se])
+        se = tf.keras.layers.GlobalAveragePooling2D()(tensor)
+        se = tf.keras.layers.Dense(f // ratio, activation='relu')(se)
+        se = tf.keras.layers.Dense(f, activation='sigmoid')(se)
+        se = tf.keras.layers.Reshape((1, 1, f))(se)
+        return tf.keras.layers.Multiply()([tensor, se])
 
 
     mid_features = apply_se(mid_features)
@@ -2499,28 +2498,28 @@ def init_resNet50V2_FASD_RGB_V8_10(input_shape=(224, 224, 3)):
     # 5. Hybrid Global Fusion
     # We pool both scales to ensure global context and local anomalies are captured
     
-    mid_pool = layers.Concatenate()([
-        layers.GlobalAveragePooling2D()(mid_features),
-        layers.GlobalMaxPooling2D()(mid_features)
+    mid_pool = tf.keras.layers.Concatenate()([
+        tf.keras.layers.GlobalAveragePooling2D()(mid_features),
+        tf.keras.layers.GlobalMaxPooling2D()(mid_features)
     ])
 
     # 6. Dense Integration Head
     
     
-    x = layers.Dense(512, activation='swish')(mid_pool) 
-    x = layers.BatchNormalization()(x)
-    x = layers.Dropout(0.5)(x)
+    x = tf.keras.layers.Dense(512, activation='swish')(mid_pool) 
+    x = tf.keras.layers.BatchNormalization()(x)
+    x = tf.keras.layers.Dropout(0.5)(x)
     
-    x = layers.Dense(128, activation='swish')(x)
-    x = layers.Dropout(0.3)(x)
+    x = tf.keras.layers.Dense(128, activation='swish')(x)
+    x = tf.keras.layers.Dropout(0.3)(x)
     
-    output = layers.Dense(1, activation='sigmoid')(x)
+    output = tf.keras.layers.Dense(1, activation='sigmoid')(x)
     
-    model = models.Model(inputs=img_input, outputs=output, name="resNet50V2_FASD_RGB_V8_aug2")
+    model = tf.keras.Model(inputs=img_input, outputs=output, name="resNet50V2_FASD_RGB_V8_aug2")
     return model
 
 def init_resNet50V2_FASD_RGB_V8_11(input_shape=(224, 224, 3)):
-    img_input = layers.Input(shape=input_shape)
+    img_input = tf.keras.layers.Input(shape=input_shape)
     
     # 1. Advanced Augmentation: Strictly prevents "cheating" on background edges
     augmentation = tf.keras.Sequential([
@@ -2548,11 +2547,11 @@ def init_resNet50V2_FASD_RGB_V8_11(input_shape=(224, 224, 3)):
     # 4. Squeeze-and-Excitation (SE) on both scales
     def apply_se(tensor, ratio=16):
         f = tensor.shape[-1]
-        se = layers.GlobalAveragePooling2D()(tensor)
-        se = layers.Dense(f // ratio, activation='relu')(se)
-        se = layers.Dense(f, activation='sigmoid')(se)
-        se = layers.Reshape((1, 1, f))(se)
-        return layers.Multiply()([tensor, se])
+        se = tf.keras.layers.GlobalAveragePooling2D()(tensor)
+        se = tf.keras.layers.Dense(f // ratio, activation='relu')(se)
+        se = tf.keras.layers.Dense(f, activation='sigmoid')(se)
+        se = tf.keras.layers.Reshape((1, 1, f))(se)
+        return tf.keras.layers.Multiply()([tensor, se])
 
 
     mid_features = apply_se(mid_features)
@@ -2560,29 +2559,29 @@ def init_resNet50V2_FASD_RGB_V8_11(input_shape=(224, 224, 3)):
     # 5. Hybrid Global Fusion
     # We pool both scales to ensure global context and local anomalies are captured
     
-    mid_pool = layers.Concatenate()([
-        layers.GlobalAveragePooling2D()(mid_features),
-        layers.GlobalMaxPooling2D()(mid_features)
+    mid_pool = tf.keras.layers.Concatenate()([
+        tf.keras.layers.GlobalAveragePooling2D()(mid_features),
+        tf.keras.layers.GlobalMaxPooling2D()(mid_features)
     ])
 
     # 6. Dense Integration Head
     
     
-    x = layers.Dense(512, activation='swish')(mid_pool) 
-    x = layers.BatchNormalization()(x)
-    x = layers.Dropout(0.5)(x)
+    x = tf.keras.layers.Dense(512, activation='swish')(mid_pool) 
+    x = tf.keras.layers.BatchNormalization()(x)
+    x = tf.keras.layers.Dropout(0.5)(x)
     
-    x = layers.Dense(128, activation='swish')(x)
-    x = layers.Dropout(0.3)(x)
+    x = tf.keras.layers.Dense(128, activation='swish')(x)
+    x = tf.keras.layers.Dropout(0.3)(x)
     
-    output = layers.Dense(1, activation='sigmoid')(x)
+    output = tf.keras.layers.Dense(1, activation='sigmoid')(x)
     
-    model = models.Model(inputs=img_input, outputs=output, name="resNet50V2_FASD_RGB_V8_aug3")
+    model = tf.keras.Model(inputs=img_input, outputs=output, name="resNet50V2_FASD_RGB_V8_aug3")
     return model
 
 
 def init_resNet50V2_FASD_RGB_V8_12(input_shape=(224, 224, 3)):
-    img_input = layers.Input(shape=input_shape)
+    img_input = tf.keras.layers.Input(shape=input_shape)
     
     # 1. Advanced Augmentation: Strictly prevents "cheating" on background edges
     augmentation = tf.keras.Sequential([
@@ -2611,11 +2610,11 @@ def init_resNet50V2_FASD_RGB_V8_12(input_shape=(224, 224, 3)):
     # 4. Squeeze-and-Excitation (SE) on both scales
     def apply_se(tensor, ratio=8):
         f = tensor.shape[-1]
-        se = layers.GlobalAveragePooling2D()(tensor)
-        se = layers.Dense(f // ratio, activation='relu')(se)
-        se = layers.Dense(f, activation='sigmoid')(se)
-        se = layers.Reshape((1, 1, f))(se)
-        return layers.Multiply()([tensor, se])
+        se = tf.keras.layers.GlobalAveragePooling2D()(tensor)
+        se = tf.keras.layers.Dense(f // ratio, activation='relu')(se)
+        se = tf.keras.layers.Dense(f, activation='sigmoid')(se)
+        se = tf.keras.layers.Reshape((1, 1, f))(se)
+        return tf.keras.layers.Multiply()([tensor, se])
 
 
     mid_features = apply_se(mid_features)
@@ -2623,28 +2622,28 @@ def init_resNet50V2_FASD_RGB_V8_12(input_shape=(224, 224, 3)):
     # 5. Hybrid Global Fusion
     # We pool both scales to ensure global context and local anomalies are captured
     
-    mid_pool = layers.Concatenate()([
-        layers.GlobalAveragePooling2D()(mid_features),
-        layers.GlobalMaxPooling2D()(mid_features)
+    mid_pool = tf.keras.layers.Concatenate()([
+        tf.keras.layers.GlobalAveragePooling2D()(mid_features),
+        tf.keras.layers.GlobalMaxPooling2D()(mid_features)
     ])
 
     # 6. Dense Integration Head
     
     
-    x = layers.Dense(512, activation='swish')(mid_pool) # Swish often helps deeper convergence
-    x = layers.BatchNormalization()(x)
-    x = layers.Dropout(0.5)(x)
+    x = tf.keras.layers.Dense(512, activation='swish')(mid_pool) # Swish often helps deeper convergence
+    x = tf.keras.layers.BatchNormalization()(x)
+    x = tf.keras.layers.Dropout(0.5)(x)
     
-    x = layers.Dense(128, activation='swish')(x)
-    x = layers.Dropout(0.3)(x)
+    x = tf.keras.layers.Dense(128, activation='swish')(x)
+    x = tf.keras.layers.Dropout(0.3)(x)
     
-    output = layers.Dense(1, activation='sigmoid')(x)
+    output = tf.keras.layers.Dense(1, activation='sigmoid')(x)
     
-    model = models.Model(inputs=img_input, outputs=output, name="resNet50V2_FASD_RGB_V8_RandomErasing_SE_ratio8")
+    model = tf.keras.Model(inputs=img_input, outputs=output, name="resNet50V2_FASD_RGB_V8_RandomErasing_SE_ratio8")
     return model
 
 def init_resNet50V2_FASD_RGB_V8_13(input_shape=(224, 224, 3)):
-    img_input = layers.Input(shape=input_shape)
+    img_input = tf.keras.layers.Input(shape=input_shape)
     
     # 1. Advanced Augmentation: Strictly prevents "cheating" on background edges
     augmentation = tf.keras.Sequential([
@@ -2673,11 +2672,11 @@ def init_resNet50V2_FASD_RGB_V8_13(input_shape=(224, 224, 3)):
     # 4. Squeeze-and-Excitation (SE) on both scales
     def apply_se(tensor, ratio=16):
         f = tensor.shape[-1]
-        se = layers.GlobalAveragePooling2D()(tensor)
-        se = layers.Dense(f // ratio, activation='relu')(se)
-        se = layers.Dense(f, activation='sigmoid')(se)
-        se = layers.Reshape((1, 1, f))(se)
-        return layers.Multiply()([tensor, se])
+        se = tf.keras.layers.GlobalAveragePooling2D()(tensor)
+        se = tf.keras.layers.Dense(f // ratio, activation='relu')(se)
+        se = tf.keras.layers.Dense(f, activation='sigmoid')(se)
+        se = tf.keras.layers.Reshape((1, 1, f))(se)
+        return tf.keras.layers.Multiply()([tensor, se])
 
 
     mid_features = apply_se(mid_features)
@@ -2686,29 +2685,29 @@ def init_resNet50V2_FASD_RGB_V8_13(input_shape=(224, 224, 3)):
     # 5. Hybrid Global Fusion
     # We pool both scales to ensure global context and local anomalies are captured
     
-    mid_pool = layers.Concatenate()([
-        layers.GlobalAveragePooling2D()(mid_features),
-        layers.GlobalMaxPooling2D()(mid_features)
+    mid_pool = tf.keras.layers.Concatenate()([
+        tf.keras.layers.GlobalAveragePooling2D()(mid_features),
+        tf.keras.layers.GlobalMaxPooling2D()(mid_features)
     ])
 
     # 6. Dense Integration Head
     
     
-    x = layers.Dense(512, activation='swish')(mid_pool) # Swish often helps deeper convergence
-    x = layers.BatchNormalization()(x)
-    x = layers.Dropout(0.5)(x)
+    x = tf.keras.layers.Dense(512, activation='swish')(mid_pool) # Swish often helps deeper convergence
+    x = tf.keras.layers.BatchNormalization()(x)
+    x = tf.keras.layers.Dropout(0.5)(x)
     
-    x = layers.Dense(128, activation='swish')(x)
-    x = layers.Dropout(0.3)(x)
+    x = tf.keras.layers.Dense(128, activation='swish')(x)
+    x = tf.keras.layers.Dropout(0.3)(x)
     
-    output = layers.Dense(1, activation='sigmoid')(x)
+    output = tf.keras.layers.Dense(1, activation='sigmoid')(x)
     
-    model = models.Model(inputs=img_input, outputs=output, name="resNet50V2_FASD_RGB_V8_RandomErasing_SE_ratio16_and_8")
+    model = tf.keras.Model(inputs=img_input, outputs=output, name="resNet50V2_FASD_RGB_V8_RandomErasing_SE_ratio16_and_8")
     return model
 
 
 def init_resNet50V2_FASD_RGB_V8_14(input_shape=(224, 224, 3)):
-    img_input = layers.Input(shape=input_shape)
+    img_input = tf.keras.layers.Input(shape=input_shape)
     
     augmentation = tf.keras.Sequential([
     tf.keras.layers.RandomErasing(
@@ -2734,39 +2733,39 @@ def init_resNet50V2_FASD_RGB_V8_14(input_shape=(224, 224, 3)):
 
     def apply_se(tensor, ratio=16):
         f = tensor.shape[-1]
-        se = layers.GlobalAveragePooling2D()(tensor)
-        se = layers.Dense(f // ratio, activation='relu')(se)
-        se = layers.Dense(f, activation='sigmoid')(se)
-        se = layers.Reshape((1, 1, f))(se)
-        return layers.Multiply()([tensor, se])
+        se = tf.keras.layers.GlobalAveragePooling2D()(tensor)
+        se = tf.keras.layers.Dense(f // ratio, activation='relu')(se)
+        se = tf.keras.layers.Dense(f, activation='sigmoid')(se)
+        se = tf.keras.layers.Reshape((1, 1, f))(se)
+        return tf.keras.layers.Multiply()([tensor, se])
 
 
     mid_features = apply_se(mid_features)
 
-    mid_pool = layers.Concatenate()([
-        layers.GlobalAveragePooling2D()(mid_features),
-        layers.GlobalMaxPooling2D()(mid_features)
+    mid_pool = tf.keras.layers.Concatenate()([
+        tf.keras.layers.GlobalAveragePooling2D()(mid_features),
+        tf.keras.layers.GlobalMaxPooling2D()(mid_features)
     ])
 
-    x = layers.Dense(512, activation='swish')(mid_pool)
-    x = layers.BatchNormalization()(x)
-    x = layers.Dropout(0.5)(x)
+    x = tf.keras.layers.Dense(512, activation='swish')(mid_pool)
+    x = tf.keras.layers.BatchNormalization()(x)
+    x = tf.keras.layers.Dropout(0.5)(x)
 
-    x = layers.Dense(256, activation='swish')(x)
-    x = layers.BatchNormalization()(x)
-    x = layers.Dropout(0.3)(x)
+    x = tf.keras.layers.Dense(256, activation='swish')(x)
+    x = tf.keras.layers.BatchNormalization()(x)
+    x = tf.keras.layers.Dropout(0.3)(x)
     
-    x = layers.Dense(128, activation='swish')(x)
-    x = layers.Dropout(0.3)(x)
+    x = tf.keras.layers.Dense(128, activation='swish')(x)
+    x = tf.keras.layers.Dropout(0.3)(x)
     
-    output = layers.Dense(1, activation='sigmoid')(x)
+    output = tf.keras.layers.Dense(1, activation='sigmoid')(x)
     
-    model = models.Model(inputs=img_input, outputs=output, name="resNet50V2_FASD_RGB_V8_RandomErasing_deeper_classifier")
+    model = tf.keras.Model(inputs=img_input, outputs=output, name="resNet50V2_FASD_RGB_V8_RandomErasing_deeper_classifier")
     return model
 
 
 def init_resNet50V2_FASD_RGB_V8_15(input_shape=(224, 224, 3)):
-    img_input = layers.Input(shape=input_shape)
+    img_input = tf.keras.layers.Input(shape=input_shape)
     
     # 1. Advanced Augmentation: Strictly prevents "cheating" on background edges
     augmentation = tf.keras.Sequential([
@@ -2795,11 +2794,11 @@ def init_resNet50V2_FASD_RGB_V8_15(input_shape=(224, 224, 3)):
     # 4. Squeeze-and-Excitation (SE) on both scales
     # def apply_se(tensor, ratio=16):
     #     f = tensor.shape[-1]
-    #     se = layers.GlobalAveragePooling2D()(tensor)
-    #     se = layers.Dense(f // ratio, activation='relu')(se)
-    #     se = layers.Dense(f, activation='sigmoid')(se)
-    #     se = layers.Reshape((1, 1, f))(se)
-    #     return layers.Multiply()([tensor, se])
+    #     se =tf.keras.layers.GlobalAveragePooling2D()(tensor)
+    #     se =tf.keras.layers.Dense(f // ratio, activation='relu')(se)
+    #     se =tf.keras.layers.Dense(f, activation='sigmoid')(se)
+    #     se =tf.keras.layers.Reshape((1, 1, f))(se)
+    #     return tf.keras.layers.Multiply()([tensor, se])
 
 
     # mid_features = apply_se(mid_features)
@@ -2807,30 +2806,30 @@ def init_resNet50V2_FASD_RGB_V8_15(input_shape=(224, 224, 3)):
     # 5. Hybrid Global Fusion
     # We pool both scales to ensure global context and local anomalies are captured
     
-    mid_pool = layers.Concatenate()([
-        layers.GlobalAveragePooling2D()(mid_features),
-        layers.GlobalMaxPooling2D()(mid_features)
+    mid_pool = tf.keras.layers.Concatenate()([
+        tf.keras.layers.GlobalAveragePooling2D()(mid_features),
+        tf.keras.layers.GlobalMaxPooling2D()(mid_features)
     ])
 
     # 6. Dense Integration Head
     
     
-    x = layers.Dense(512, activation='swish')(mid_pool) # Swish often helps deeper convergence
-    x = layers.BatchNormalization()(x)
-    x = layers.Dropout(0.5)(x)
+    x = tf.keras.layers.Dense(512, activation='swish')(mid_pool) # Swish often helps deeper convergence
+    x = tf.keras.layers.BatchNormalization()(x)
+    x = tf.keras.layers.Dropout(0.5)(x)
     
-    x = layers.Dense(128, activation='swish')(x)
-    x = layers.Dropout(0.3)(x)
+    x = tf.keras.layers.Dense(128, activation='swish')(x)
+    x = tf.keras.layers.Dropout(0.3)(x)
     
-    output = layers.Dense(1, activation='sigmoid')(x)
+    output = tf.keras.layers.Dense(1, activation='sigmoid')(x)
     
-    model = models.Model(inputs=img_input, outputs=output, name="resNet50V2_FASD_RGB_V8_RandomErasing_no_SE")
+    model = tf.keras.Model(inputs=img_input, outputs=output, name="resNet50V2_FASD_RGB_V8_RandomErasing_no_SE")
     return model
 
 
 
 def init_resNet50V2_FASD_RGB_V8_16(input_shape=(224, 224, 3)):
-    img_input = layers.Input(shape=input_shape)
+    img_input = tf.keras.layers.Input(shape=input_shape)
     
     # 1. Advanced Augmentation: Strictly prevents "cheating" on background edges
     augmentation = tf.keras.Sequential([
@@ -2859,11 +2858,11 @@ def init_resNet50V2_FASD_RGB_V8_16(input_shape=(224, 224, 3)):
     # 4. Squeeze-and-Excitation (SE) on both scales
     def apply_se(tensor, ratio=16):
         f = tensor.shape[-1]
-        se = layers.GlobalAveragePooling2D()(tensor)
-        se = layers.Dense(f // ratio, activation='relu')(se)
-        se = layers.Dense(f, activation='sigmoid')(se)
-        se = layers.Reshape((1, 1, f))(se)
-        return layers.Multiply()([tensor, se])
+        se = tf.keras.layers.GlobalAveragePooling2D()(tensor)
+        se = tf.keras.layers.Dense(f // ratio, activation='relu')(se)
+        se = tf.keras.layers.Dense(f, activation='sigmoid')(se)
+        se = tf.keras.layers.Reshape((1, 1, f))(se)
+        return tf.keras.layers.Multiply()([tensor, se])
 
 
     mid_features = apply_se(mid_features, ratio=32)
@@ -2871,28 +2870,28 @@ def init_resNet50V2_FASD_RGB_V8_16(input_shape=(224, 224, 3)):
     # 5. Hybrid Global Fusion
     # We pool both scales to ensure global context and local anomalies are captured
     
-    mid_pool = layers.Concatenate()([
-        layers.GlobalAveragePooling2D()(mid_features),
-        layers.GlobalMaxPooling2D()(mid_features)
+    mid_pool = tf.keras.layers.Concatenate()([
+        tf.keras.layers.GlobalAveragePooling2D()(mid_features),
+        tf.keras.layers.GlobalMaxPooling2D()(mid_features)
     ])
 
     # 6. Dense Integration Head
     
     
-    x = layers.Dense(512, activation='swish')(mid_pool) # Swish often helps deeper convergence
-    x = layers.BatchNormalization()(x)
-    x = layers.Dropout(0.5)(x)
+    x = tf.keras.layers.Dense(512, activation='swish')(mid_pool) # Swish often helps deeper convergence
+    x = tf.keras.layers.BatchNormalization()(x)
+    x = tf.keras.layers.Dropout(0.5)(x)
     
-    x = layers.Dense(128, activation='swish')(x)
-    x = layers.Dropout(0.3)(x)
+    x = tf.keras.layers.Dense(128, activation='swish')(x)
+    x = tf.keras.layers.Dropout(0.3)(x)
     
-    output = layers.Dense(1, activation='sigmoid')(x)
+    output = tf.keras.layers.Dense(1, activation='sigmoid')(x)
     
-    model = models.Model(inputs=img_input, outputs=output, name="resNet50V2_FASD_RGB_V8_RandomErasing_SE_ratio32")
+    model = tf.keras.Model(inputs=img_input, outputs=output, name="resNet50V2_FASD_RGB_V8_RandomErasing_SE_ratio32")
     return model
 
 def init_resNet50V2_FASD_RGB_V8_17(input_shape=(224, 224, 3)):
-    img_input = layers.Input(shape=input_shape)
+    img_input = tf.keras.layers.Input(shape=input_shape)
     
     # 1. Advanced Augmentation: Strictly prevents "cheating" on background edges
     augmentation = tf.keras.Sequential([
@@ -2921,11 +2920,11 @@ def init_resNet50V2_FASD_RGB_V8_17(input_shape=(224, 224, 3)):
     # 4. Squeeze-and-Excitation (SE) on both scales
     def apply_se(tensor, ratio=16):
         f = tensor.shape[-1]
-        se = layers.GlobalAveragePooling2D()(tensor)
-        se = layers.Dense(f // ratio, activation='relu')(se)
-        se = layers.Dense(f, activation='sigmoid')(se)
-        se = layers.Reshape((1, 1, f))(se)
-        return layers.Multiply()([tensor, se])
+        se = tf.keras.layers.GlobalAveragePooling2D()(tensor)
+        se = tf.keras.layers.Dense(f // ratio, activation='relu')(se)
+        se = tf.keras.layers.Dense(f, activation='sigmoid')(se)
+        se = tf.keras.layers.Reshape((1, 1, f))(se)
+        return tf.keras.layers.Multiply()([tensor, se])
 
 
     mid_features = apply_se(mid_features, ratio=64)
@@ -2933,30 +2932,30 @@ def init_resNet50V2_FASD_RGB_V8_17(input_shape=(224, 224, 3)):
     # 5. Hybrid Global Fusion
     # We pool both scales to ensure global context and local anomalies are captured
     
-    mid_pool = layers.Concatenate()([
-        layers.GlobalAveragePooling2D()(mid_features),
-        layers.GlobalMaxPooling2D()(mid_features)
+    mid_pool = tf.keras.layers.Concatenate()([
+        tf.keras.layers.GlobalAveragePooling2D()(mid_features),
+        tf.keras.layers.GlobalMaxPooling2D()(mid_features)
     ])
 
     # 6. Dense Integration Head
     
     
-    x = layers.Dense(512, activation='swish')(mid_pool) # Swish often helps deeper convergence
-    x = layers.BatchNormalization()(x)
-    x = layers.Dropout(0.5)(x)
+    x = tf.keras.layers.Dense(512, activation='swish')(mid_pool) # Swish often helps deeper convergence
+    x = tf.keras.layers.BatchNormalization()(x)
+    x = tf.keras.layers.Dropout(0.5)(x)
     
-    x = layers.Dense(128, activation='swish')(x)
-    x = layers.Dropout(0.3)(x)
+    x = tf.keras.layers.Dense(128, activation='swish')(x)
+    x = tf.keras.layers.Dropout(0.3)(x)
     
-    output = layers.Dense(1, activation='sigmoid')(x)
+    output = tf.keras.layers.Dense(1, activation='sigmoid')(x)
     
-    model = models.Model(inputs=img_input, outputs=output, name="resNet50V2_FASD_RGB_V8_RandomErasing_SE_ratio64")
+    model = tf.keras.Model(inputs=img_input, outputs=output, name="resNet50V2_FASD_RGB_V8_RandomErasing_SE_ratio64")
     return model
 
 
 
 def init_resNet50V2_FASD_RGB_V8_20(input_shape=(224, 224, 3)):
-    img_input = layers.Input(shape=input_shape)
+    img_input = tf.keras.layers.Input(shape=input_shape)
     
     # 1. Advanced Augmentation: Strictly prevents "cheating" on background edges
     augmentation = tf.keras.Sequential([
@@ -2984,11 +2983,11 @@ def init_resNet50V2_FASD_RGB_V8_20(input_shape=(224, 224, 3)):
     # 4. Squeeze-and-Excitation (SE) on both scales
     def apply_se(tensor, ratio=16):
         f = tensor.shape[-1]
-        se = layers.GlobalAveragePooling2D()(tensor)
-        se = layers.Dense(f // ratio, activation='relu')(se)
-        se = layers.Dense(f, activation='sigmoid')(se)
-        se = layers.Reshape((1, 1, f))(se)
-        return layers.Multiply()([tensor, se])
+        se = tf.keras.layers.GlobalAveragePooling2D()(tensor)
+        se = tf.keras.layers.Dense(f // ratio, activation='relu')(se)
+        se = tf.keras.layers.Dense(f, activation='sigmoid')(se)
+        se = tf.keras.layers.Reshape((1, 1, f))(se)
+        return tf.keras.layers.Multiply()([tensor, se])
 
 
     mid_features = apply_se(mid_features)
@@ -2996,29 +2995,29 @@ def init_resNet50V2_FASD_RGB_V8_20(input_shape=(224, 224, 3)):
     # 5. Hybrid Global Fusion
     # We pool both scales to ensure global context and local anomalies are captured
     
-    mid_pool = layers.Concatenate()([
-        layers.GlobalAveragePooling2D()(mid_features),
-        layers.GlobalMaxPooling2D()(mid_features)
+    mid_pool = tf.keras.layers.Concatenate()([
+        tf.keras.layers.GlobalAveragePooling2D()(mid_features),
+        tf.keras.layers.GlobalMaxPooling2D()(mid_features)
     ])
 
     # 6. Dense Integration Head
     
     
-    x = layers.Dense(512, activation='swish')(mid_pool) # Swish often helps deeper convergence
-    x = layers.BatchNormalization()(x)
-    x = layers.Dropout(0.5)(x)
+    x = tf.keras.layers.Dense(512, activation='swish')(mid_pool) # Swish often helps deeper convergence
+    x = tf.keras.layers.BatchNormalization()(x)
+    x = tf.keras.layers.Dropout(0.5)(x)
     
-    x = layers.Dense(128, activation='swish')(x)
-    x = layers.Dropout(0.3)(x)
+    x = tf.keras.layers.Dense(128, activation='swish')(x)
+    x = tf.keras.layers.Dropout(0.3)(x)
     
-    output = layers.Dense(1, activation='sigmoid')(x)
+    output = tf.keras.layers.Dense(1, activation='sigmoid')(x)
     
-    model = models.Model(inputs=img_input, outputs=output, name="resNet50V2_FASD_RGB_V8_RandomErasing_no_rotation")
+    model = tf.keras.Model(inputs=img_input, outputs=output, name="resNet50V2_FASD_RGB_V8_RandomErasing_no_rotation")
     return model
 
 
 def init_resNet50V2_FASD_RGB_V8_21(input_shape=(224, 224, 3)):
-    img_input = layers.Input(shape=input_shape)
+    img_input = tf.keras.layers.Input(shape=input_shape)
     
     # 1. Advanced Augmentation: Strictly prevents "cheating" on background edges
     augmentation = tf.keras.Sequential([
@@ -3046,11 +3045,11 @@ def init_resNet50V2_FASD_RGB_V8_21(input_shape=(224, 224, 3)):
     # 4. Squeeze-and-Excitation (SE) on both scales
     def apply_se(tensor, ratio=16):
         f = tensor.shape[-1]
-        se = layers.GlobalAveragePooling2D()(tensor)
-        se = layers.Dense(f // ratio, activation='relu')(se)
-        se = layers.Dense(f, activation='sigmoid')(se)
-        se = layers.Reshape((1, 1, f))(se)
-        return layers.Multiply()([tensor, se])
+        se = tf.keras.layers.GlobalAveragePooling2D()(tensor)
+        se = tf.keras.layers.Dense(f // ratio, activation='relu')(se)
+        se = tf.keras.layers.Dense(f, activation='sigmoid')(se)
+        se = tf.keras.layers.Reshape((1, 1, f))(se)
+        return tf.keras.layers.Multiply()([tensor, se])
 
 
     mid_features = apply_se(mid_features)
@@ -3058,29 +3057,29 @@ def init_resNet50V2_FASD_RGB_V8_21(input_shape=(224, 224, 3)):
     # 5. Hybrid Global Fusion
     # We pool both scales to ensure global context and local anomalies are captured
     
-    mid_pool = layers.Concatenate()([
-        layers.GlobalAveragePooling2D()(mid_features),
-        layers.GlobalMaxPooling2D()(mid_features)
+    mid_pool = tf.keras.layers.Concatenate()([
+        tf.keras.layers.GlobalAveragePooling2D()(mid_features),
+        tf.keras.layers.GlobalMaxPooling2D()(mid_features)
     ])
 
     # 6. Dense Integration Head
     
     
-    x = layers.Dense(512, activation='swish')(mid_pool) # Swish often helps deeper convergence
-    x = layers.BatchNormalization()(x)
-    x = layers.Dropout(0.5)(x)
+    x = tf.keras.layers.Dense(512, activation='swish')(mid_pool) # Swish often helps deeper convergence
+    x = tf.keras.layers.BatchNormalization()(x)
+    x = tf.keras.layers.Dropout(0.5)(x)
     
-    x = layers.Dense(128, activation='swish')(x)
-    x = layers.Dropout(0.3)(x)
+    x = tf.keras.layers.Dense(128, activation='swish')(x)
+    x = tf.keras.layers.Dropout(0.3)(x)
     
-    output = layers.Dense(1, activation='sigmoid')(x)
+    output = tf.keras.layers.Dense(1, activation='sigmoid')(x)
     
-    model = models.Model(inputs=img_input, outputs=output, name="resNet50V2_FASD_RGB_V8_RandomErasing_no_brightness")
+    model = tf.keras.Model(inputs=img_input, outputs=output, name="resNet50V2_FASD_RGB_V8_RandomErasing_no_brightness")
     return model
 
 
 def init_resNet50V2_FASD_RGB_V8_22(input_shape=(224, 224, 3)):
-    img_input = layers.Input(shape=input_shape)
+    img_input = tf.keras.layers.Input(shape=input_shape)
     
     # 1. Advanced Augmentation: Strictly prevents "cheating" on background edges
     augmentation = tf.keras.Sequential([
@@ -3109,11 +3108,11 @@ def init_resNet50V2_FASD_RGB_V8_22(input_shape=(224, 224, 3)):
     # 4. Squeeze-and-Excitation (SE) on both scales
     def apply_se(tensor, ratio=16):
         f = tensor.shape[-1]
-        se = layers.GlobalAveragePooling2D()(tensor)
-        se = layers.Dense(f // ratio, activation='relu')(se)
-        se = layers.Dense(f, activation='sigmoid')(se)
-        se = layers.Reshape((1, 1, f))(se)
-        return layers.Multiply()([tensor, se])
+        se = tf.keras.layers.GlobalAveragePooling2D()(tensor)
+        se = tf.keras.layers.Dense(f // ratio, activation='relu')(se)
+        se = tf.keras.layers.Dense(f, activation='sigmoid')(se)
+        se = tf.keras.layers.Reshape((1, 1, f))(se)
+        return tf.keras.layers.Multiply()([tensor, se])
 
 
     mid_features = apply_se(mid_features)
@@ -3121,28 +3120,28 @@ def init_resNet50V2_FASD_RGB_V8_22(input_shape=(224, 224, 3)):
     # 5. Hybrid Global Fusion
     # We pool both scales to ensure global context and local anomalies are captured
     
-    mid_pool = layers.Concatenate()([
-        layers.GlobalAveragePooling2D()(mid_features),
-        layers.GlobalMaxPooling2D()(mid_features)
+    mid_pool = tf.keras.layers.Concatenate()([
+        tf.keras.layers.GlobalAveragePooling2D()(mid_features),
+        tf.keras.layers.GlobalMaxPooling2D()(mid_features)
     ])
 
     # 6. Dense Integration Head
     
     
-    x = layers.Dense(512, activation='swish')(mid_pool) # Swish often helps deeper convergence
-    x = layers.BatchNormalization()(x)
-    x = layers.Dropout(0.5)(x)
+    x = tf.keras.layers.Dense(512, activation='swish')(mid_pool) # Swish often helps deeper convergence
+    x = tf.keras.layers.BatchNormalization()(x)
+    x = tf.keras.layers.Dropout(0.5)(x)
     
-    x = layers.Dense(128, activation='swish')(x)
-    x = layers.Dropout(0.3)(x)
+    x = tf.keras.layers.Dense(128, activation='swish')(x)
+    x = tf.keras.layers.Dropout(0.3)(x)
     
-    output = layers.Dense(1, activation='sigmoid')(x)
+    output = tf.keras.layers.Dense(1, activation='sigmoid')(x)
     
-    model = models.Model(inputs=img_input, outputs=output, name="resNet50V2_FASD_RGB_V8_RandomErasing_c3b2")
+    model = tf.keras.Model(inputs=img_input, outputs=output, name="resNet50V2_FASD_RGB_V8_RandomErasing_c3b2")
     return model
 
 def init_resNet50V2_FASD_RGB_V8_23(input_shape=(224, 224, 3)):
-    img_input = layers.Input(shape=input_shape)
+    img_input = tf.keras.layers.Input(shape=input_shape)
     
     # 1. Advanced Augmentation: Strictly prevents "cheating" on background edges
     augmentation = tf.keras.Sequential([
@@ -3171,11 +3170,11 @@ def init_resNet50V2_FASD_RGB_V8_23(input_shape=(224, 224, 3)):
     # 4. Squeeze-and-Excitation (SE) on both scales
     def apply_se(tensor, ratio=16):
         f = tensor.shape[-1]
-        se = layers.GlobalAveragePooling2D()(tensor)
-        se = layers.Dense(f // ratio, activation='relu')(se)
-        se = layers.Dense(f, activation='sigmoid')(se)
-        se = layers.Reshape((1, 1, f))(se)
-        return layers.Multiply()([tensor, se])
+        se = tf.keras.layers.GlobalAveragePooling2D()(tensor)
+        se = tf.keras.layers.Dense(f // ratio, activation='relu')(se)
+        se = tf.keras.layers.Dense(f, activation='sigmoid')(se)
+        se = tf.keras.layers.Reshape((1, 1, f))(se)
+        return tf.keras.layers.Multiply()([tensor, se])
 
 
     mid_features = apply_se(mid_features)
@@ -3183,24 +3182,24 @@ def init_resNet50V2_FASD_RGB_V8_23(input_shape=(224, 224, 3)):
     # 5. Hybrid Global Fusion
     # We pool both scales to ensure global context and local anomalies are captured
     
-    mid_pool = layers.Concatenate()([
-        layers.GlobalAveragePooling2D()(mid_features),
-        layers.GlobalMaxPooling2D()(mid_features)
+    mid_pool = tf.keras.layers.Concatenate()([
+        tf.keras.layers.GlobalAveragePooling2D()(mid_features),
+        tf.keras.layers.GlobalMaxPooling2D()(mid_features)
     ])
 
     # 6. Dense Integration Head
     
     
-    x = layers.Dense(512, activation='swish')(mid_pool) # Swish often helps deeper convergence
-    x = layers.BatchNormalization()(x)
-    x = layers.Dropout(0.5)(x)
+    x = tf.keras.layers.Dense(512, activation='swish')(mid_pool) # Swish often helps deeper convergence
+    x = tf.keras.layers.BatchNormalization()(x)
+    x = tf.keras.layers.Dropout(0.5)(x)
     
-    x = layers.Dense(128, activation='swish')(x)
-    x = layers.Dropout(0.3)(x)
+    x = tf.keras.layers.Dense(128, activation='swish')(x)
+    x = tf.keras.layers.Dropout(0.3)(x)
     
-    output = layers.Dense(1, activation='sigmoid')(x)
+    output = tf.keras.layers.Dense(1, activation='sigmoid')(x)
     
-    model = models.Model(inputs=img_input, outputs=output, name="resNet50V2_FASD_RGB_V8_RandomErasing_c3b4")
+    model = tf.keras.Model(inputs=img_input, outputs=output, name="resNet50V2_FASD_RGB_V8_RandomErasing_c3b4")
     return model
 
 """
@@ -3228,7 +3227,7 @@ resnet50v2_hsv_rgb_h_lbp: Extract LBP texture specifically from the Hue (H) chan
 resnet50v2_hsv_rgb_grayscale_lbp: The most robust texture model. It extracts LBP from a Grayscale version of the input, providing the ResNet with a pure "micro-texture" map to detect screen pixels or paper grain.
 (resnet50v2_hsv_rgb_grayscale_lbp outperforms resnet50v2_hsv_rgb_h_lbp and give same eer as resnet50v2_hsv_rgb)
 
-resnet50v2_hsv_rgb_v4:use RGB+HSV as input to ResNet50V2, cuts the ResNet at stage 3 (conv3_block3_out) and uses Hybrid Pooling to capture fine-grained textures before they are abstracted away by deeper layers.
+resnet50v2_hsv_rgb_v4:use RGB+HSV as input to ResNet50V2, cuts the ResNet at stage 3 (conv3_block3_out) and uses Hybrid Pooling to capture fine-grained textures before they are abstracted away by deepertf.keras.layers.
 resnet50v2_hsv_v4: Uses only HSV as input.
 resnet50v2_rgb_v4: Uses RGB instead of HSV as input.
 resnet50v2_hsv_rgb_v4: Uses RGB+HSV as input.
