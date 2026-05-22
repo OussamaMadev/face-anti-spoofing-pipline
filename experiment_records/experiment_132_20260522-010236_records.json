@@ -1,0 +1,55 @@
+{
+    "metadata": {
+        "experiment_id": "experiment_132_20260522-010236",
+        "status": "running",
+        "notes": " long training for se ratio=16 SR=10 / tune the best ablation models (2snd phase training) "
+    },
+    "records": [
+        {
+            "config": {
+                "filtering_params": {
+                    "data_map_path": "data_maps/CASIA_FASD_V3_10percent_uniformSampling.json",
+                    "keep_ratio": 0.1,
+                    "filter_function": "uniform_sampling"
+                },
+                "data_params": {
+                    "dataset_path": "/kaggle/input/datasets/maameri/casia-fasd-5margin/CASIA_FASD_V4_5margin",
+                    "input_size": [
+                        224,
+                        224,
+                        3
+                    ],
+                    "pixel_range": [
+                        0.0,
+                        1.0
+                    ],
+                    "batch_size": 16
+                },
+                "augmentation_params": {
+                    "horizontal_flip": 1,
+                    "zoom_range": [
+                        0.4,
+                        1.0
+                    ]
+                },
+                "model_params": {
+                    "model_init_function": "init_resNet50V2_FASD_RGB_V8_2",
+                    "note": null,
+                    "label_smoothing": 0.2,
+                    "parameters_count": 1797409,
+                    "architecture": "resNet50V2_FASD_RGB_V8_RandomErasing"
+                },
+                "training_params": {
+                    "early_stopping_patience": 90,
+                    "learning_rate": 0.0001,
+                    "initial_epochs": 593,
+                    "ReduceLROnPlateau_patience": 50,
+                    "ReduceLROnPlateau_factor": 0.1
+                }
+            },
+            "logs": {
+                "best_model_name": "experiment_132_20260522-010236_0_model_resNet50V2_FASD_RGB_V8_RandomErasing.keras"
+            }
+        }
+    ]
+}
