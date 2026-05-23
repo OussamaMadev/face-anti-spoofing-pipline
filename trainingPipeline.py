@@ -10,8 +10,7 @@ import numpy as np
 from sklearn.metrics import roc_curve
 from scipy.optimize import brentq
 from scipy.interpolate import interp1d
-
-from rich import print
+from pprint import pprint
 
 class TrainingPipeline:
     """
@@ -283,7 +282,7 @@ class TrainingPipeline:
             self.master_record["records"].append(entry)
             self._save_state()
             
-            print(cfg)
+            pprint(cfg)
         
             # Build data pipelines
             dlp = DataLoaderPipeline(
