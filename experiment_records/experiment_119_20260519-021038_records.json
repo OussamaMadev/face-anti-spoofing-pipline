@@ -34,7 +34,7 @@
                 },
                 "model_params": {
                     "model_init_function": "init_model",
-                    "note": null,
+                    "note": "experiment_115_20260518-004507_4_model_resNet50V2_FASD_RGB_V8_RandomErasing",
                     "parameters_count": 1797409,
                     "architecture": "resNet50V2_FASD_RGB_V8_RandomErasing"
                 },
@@ -335,7 +335,7 @@
                 },
                 "model_params": {
                     "model_init_function": "init_model",
-                    "note": null,
+                    "note": "experiment_115_20260518-004507_4_model_resNet50V2_FASD_RGB_V8_RandomErasing",
                     "parameters_count": 1797409,
                     "architecture": "resNet50V2_FASD_RGB_V8_RandomErasing"
                 },
