@@ -162,7 +162,6 @@ class TrainingPipeline:
             return 0.0  # Placeholder, actual EER is computed in the callback and logs
         
         
-        label_smoothing = m_params.get("label_smoothing", 0.0)
         isFocalLoss = m_params.get("isFocalLoss", 0)
         
         if isFocalLoss:
@@ -170,13 +169,12 @@ class TrainingPipeline:
             gamma = m_params.get("focal_gamma", 2.0)
             apply_class_balancing = m_params.get("apply_class_balancing", 0) == 1
             loss = tf.keras.losses.BinaryFocalCrossentropy(
-                label_smoothing=label_smoothing,
                 alpha=alpha,
                 gamma=gamma,
                 apply_class_balancing=apply_class_balancing
             )
         else:
-            loss = tf.keras.losses.BinaryCrossentropy(label_smoothing=label_smoothing)
+            loss = tf.keras.losses.BinaryCrossentropy()
         
         model.compile(
             optimizer=optimizer,
@@ -246,6 +244,17 @@ class TrainingPipeline:
                                                 mode='min',
                                                 verbose=1))
 
+        start_epoch = cfg["training_params"].get("label_smoothing_scheduler_start_epoch", 0)
+        decay_epochs = cfg["training_params"].get("label_smoothing_scheduler_decay_epochs", 0)
+        if start_epoch >= 0 and decay_epochs > 0:
+            initial_smoothing = cfg["training_params"].get("label_smoothing_scheduler_initial", 0.1)
+            final_smoothing = cfg["training_params"].get("label_smoothing_scheduler_final", 0.0)
+            callbacks.append(LabelSmoothingScheduler(
+                start_epoch=start_epoch,
+                decay_epochs=decay_epochs,
+                initial_smoothing=initial_smoothing,
+                final_smoothing=final_smoothing
+            ))
         
         # Always save the best model based on the monitored metric
         callbacks.append(tf.keras.callbacks.ModelCheckpoint(f"{self.models_output_path}/{model_id}", 
@@ -383,6 +392,44 @@ def run_full_gpu_pass(ds, model, loss_tracker, acc_tracker):
         idx += 1
         
     return y_true_array.concat(), y_pred_array.concat()
+
+import tensorflow as tf
+
+class LabelSmoothingScheduler(tf.keras.callbacks.Callback):
+    """
+    Custom Keras Callback to dynamically reduce label smoothing 
+    over the course of model training.
+    """
+    def __init__(self, start_epoch=10, decay_epochs=30, initial_smoothing=0.1, final_smoothing=0.0):
+        super(LabelSmoothingScheduler, self).__init__()
+        self.start_epoch = start_epoch      # When to start reducing smoothing
+        self.decay_epochs = decay_epochs    # How many epochs the decay phase lasts
+        self.initial_smoothing = initial_smoothing
+        self.final_smoothing = final_smoothing
+
+    def on_epoch_begin(self, epoch, logs=None):
+        # 1. Ensure the loss function has the label_smoothing attribute
+        if not hasattr(self.model.loss, 'label_smoothing'):
+            return
+
+        # 2. Compute the new label smoothing factor
+        if epoch <= self.start_epoch:
+            # Phase 1: Warm-up / Steady initial smoothing
+            current_smoothing = self.initial_smoothing
+        elif epoch >= (self.start_epoch + self.decay_epochs):
+            # Phase 3: Post-decay absolute minimum
+            current_smoothing = self.final_smoothing
+        else:
+            # Phase 2: Linear Decay calculations
+            step = (epoch - self.start_epoch) / self.decay_epochs
+            current_smoothing = self.initial_smoothing + step * (self.final_smoothing - self.initial_smoothing)
+
+        # 3. Hot-swap the loss function's internal parameters directly
+        if current_smoothing != self.model.loss.label_smoothing:
+            self.model.loss.label_smoothing = current_smoothing
+        
+    def on_epoch_end(self, epoch, logs=None):
+        logs['label_smoothing'] = self.current_smoothing
 
 
 class ValidationEERLogger(tf.keras.callbacks.Callback):
