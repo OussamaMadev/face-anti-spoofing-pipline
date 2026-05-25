@@ -164,6 +164,7 @@ class TrainingPipeline:
         
         isFocalLoss = m_params.get("isFocalLoss", 0)
         
+        dynamic_smoothing = tf.keras.backend.variable(0.0, name="label_smoothing")
         if isFocalLoss:
             alpha = m_params.get("focal_alpha", 0.25)
             gamma = m_params.get("focal_gamma", 2.0)
@@ -174,8 +175,8 @@ class TrainingPipeline:
                 apply_class_balancing=apply_class_balancing
             )
         else:
-            loss = tf.keras.losses.BinaryCrossentropy()
-        
+            loss = tf.keras.losses.BinaryCrossentropy(label_smoothing=dynamic_smoothing)
+
         model.compile(
             optimizer=optimizer,
             loss=loss,
@@ -402,34 +403,34 @@ class LabelSmoothingScheduler(tf.keras.callbacks.Callback):
     """
     def __init__(self, start_epoch=10, decay_epochs=30, initial_smoothing=0.1, final_smoothing=0.0):
         super(LabelSmoothingScheduler, self).__init__()
-        self.start_epoch = start_epoch      # When to start reducing smoothing
-        self.decay_epochs = decay_epochs    # How many epochs the decay phase lasts
+        self.start_epoch = start_epoch      
+        self.decay_epochs = decay_epochs 
         self.initial_smoothing = initial_smoothing
         self.final_smoothing = final_smoothing
 
     def on_epoch_begin(self, epoch, logs=None):
-        # 1. Ensure the loss function has the label_smoothing attribute
-        if not hasattr(self.model.loss, 'label_smoothing'):
+        loss_obj = self.model.loss
+        if not hasattr(loss_obj, 'label_smoothing'):
             return
 
-        # 2. Compute the new label smoothing factor
-        if epoch <= self.start_epoch:
-            # Phase 1: Warm-up / Steady initial smoothing
+       
+        if epoch < self.start_epoch:
+            
             current_smoothing = self.initial_smoothing
         elif epoch >= (self.start_epoch + self.decay_epochs):
-            # Phase 3: Post-decay absolute minimum
+            
             current_smoothing = self.final_smoothing
         else:
-            # Phase 2: Linear Decay calculations
+            
             step = (epoch - self.start_epoch) / self.decay_epochs
             current_smoothing = self.initial_smoothing + step * (self.final_smoothing - self.initial_smoothing)
-
-        # 3. Hot-swap the loss function's internal parameters directly
-        if current_smoothing != self.model.loss.label_smoothing:
-            self.model.loss.label_smoothing = current_smoothing
+        
+        tf.keras.backend.set_value(loss_obj.label_smoothing, current_smoothing)
+        
         
     def on_epoch_end(self, epoch, logs=None):
-        logs['label_smoothing'] = self.model.loss.label_smoothing
+        smoothing_val = tf.keras.backend.get_value(self.model.loss.label_smoothing)
+        logs['label_smoothing'] = float(smoothing_val)
 
 
 class ValidationEERLogger(tf.keras.callbacks.Callback):
