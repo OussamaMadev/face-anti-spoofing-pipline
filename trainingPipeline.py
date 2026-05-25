@@ -164,7 +164,7 @@ class TrainingPipeline:
         
         isFocalLoss = m_params.get("isFocalLoss", 0)
         
-        dynamic_smoothing = tf.keras.backend.variable(0.0, name="label_smoothing")
+        custom_loss_engine = DynamicSmoothedBCELoss()
         if isFocalLoss:
             alpha = m_params.get("focal_alpha", 0.25)
             gamma = m_params.get("focal_gamma", 2.0)
@@ -175,7 +175,7 @@ class TrainingPipeline:
                 apply_class_balancing=apply_class_balancing
             )
         else:
-            loss = tf.keras.losses.BinaryCrossentropy(label_smoothing=dynamic_smoothing)
+            loss = custom_loss_engine
 
         model.compile(
             optimizer=optimizer,
@@ -423,13 +423,27 @@ class LabelSmoothingScheduler(tf.keras.callbacks.Callback):
             step = (epoch - self.start_epoch) / self.decay_epochs
             current_smoothing = self.initial_smoothing + step * (self.final_smoothing - self.initial_smoothing)
         
-        tf.keras.backend.set_value(loss_obj.label_smoothing, current_smoothing)
+        loss_obj.label_smoothing.assign(current_smoothing)
         
         
     def on_epoch_end(self, epoch, logs=None):
-        smoothing_val = tf.keras.backend.get_value(self.model.loss.label_smoothing)
+        smoothing_val = self.model.loss.label_smoothing.read_value().numpy()
         logs['label_smoothing'] = float(smoothing_val)
 
+class DynamicSmoothedBCELoss(tf.keras.losses.Loss):
+    """
+    A transparent loss wrapper that reads a dynamic mutable tensor 
+    variable at every training step to bypass static graph constraints.
+    """
+    def __init__(self, initial_smoothing=0.0, **kwargs):
+        super().__init__(**kwargs)
+        self.label_smoothing = tf.Variable(initial_smoothing, dtype=tf.float32, trainable=False)
+        self.bce = tf.keras.losses.BinaryCrossentropy()
+
+    def call(self, y_true, y_pred):
+        smoothing_val = self.label_smoothing.read_value()
+        smoothed_labels = y_true * (1.0 - smoothing_val) + 0.5 * smoothing_val
+        return self.bce(smoothed_labels, y_pred)
 
 class ValidationEERLogger(tf.keras.callbacks.Callback):
     def __init__(self, val_ds):
