@@ -410,9 +410,7 @@ class LabelSmoothingScheduler(tf.keras.callbacks.Callback):
 
     def on_epoch_begin(self, epoch, logs=None):
         loss_obj = self.model.loss
-        if not hasattr(loss_obj, 'label_smoothing'):
-            return
-
+        
        
         if epoch < self.start_epoch:
             
