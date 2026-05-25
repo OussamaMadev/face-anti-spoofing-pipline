@@ -429,7 +429,7 @@ class LabelSmoothingScheduler(tf.keras.callbacks.Callback):
             self.model.loss.label_smoothing = current_smoothing
         
     def on_epoch_end(self, epoch, logs=None):
-        logs['label_smoothing'] = self.current_smoothing
+        logs['label_smoothing'] = self.model.loss.label_smoothing
 
 
 class ValidationEERLogger(tf.keras.callbacks.Callback):
