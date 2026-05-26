@@ -2953,6 +2953,67 @@ def init_resNet50V2_FASD_RGB_V8_17(input_shape=(224, 224, 3)):
     return model
 
 
+def init_resNet50V2_FASD_RGB_V8_18(input_shape=(224, 224, 3)):
+    img_input = tf.keras.layers.Input(shape=input_shape)
+    
+    # 1. Advanced Augmentation: Strictly prevents "cheating" on background edges
+    augmentation = tf.keras.Sequential([
+    tf.keras.layers.RandomErasing(
+        factor=0.5, 
+        scale=(0.02, 1/3) # Erase between 2% and 33% of the image
+    ),
+    tf.keras.layers.RandomRotation(0.05), # Reduced from 0.15 to keep faces upright
+    tf.keras.layers.RandomBrightness(0.0005), # Reduced to avoid blowing out skin texture
+    ], name="data_augmentation")
+    
+    x = augmentation(img_input)
+
+    # 2. Backbone with ImageNet weights 
+    # (Starting from scratch makes 0.0 EER nearly impossible)
+    base_model = tf.keras.applications.ResNet50V2(
+        input_tensor=x,
+        include_top=False,
+        weights=None
+    )
+
+    # Branch B: Mid-level semantic structure (depth cues, surface gradients)
+    mid_features = base_model.get_layer("conv3_block3_out").output
+
+    # 4. Squeeze-and-Excitation (SE) on both scales
+    def apply_se(tensor, ratio=16):
+        f = tensor.shape[-1]
+        se = tf.keras.layers.GlobalAveragePooling2D()(tensor)
+        se = tf.keras.layers.Dense(f // ratio, activation='relu')(se)
+        se = tf.keras.layers.Dense(f, activation='sigmoid')(se)
+        se = tf.keras.layers.Reshape((1, 1, f))(se)
+        return tf.keras.layers.Multiply()([tensor, se])
+
+
+    mid_features = apply_se(mid_features)
+
+    # 5. Hybrid Global Fusion
+    # We pool both scales to ensure global context and local anomalies are captured
+    
+    mid_pool = tf.keras.layers.Concatenate()([
+        tf.keras.layers.GlobalAveragePooling2D()(mid_features),
+        tf.keras.layers.GlobalMaxPooling2D()(mid_features)
+    ])
+
+    # 6. Dense Integration Head
+    
+    
+    x = tf.keras.layers.Dense(512, activation='silu')(mid_pool) 
+    x = tf.keras.layers.BatchNormalization()(x)
+    x = tf.keras.layers.Dropout(0.5)(x)
+    
+    x = tf.keras.layers.Dense(128, activation='silu')(x)
+    x = tf.keras.layers.Dropout(0.3)(x)
+    
+    output = tf.keras.layers.Dense(1, activation='sigmoid')(x)
+    
+    model = tf.keras.Model(inputs=img_input, outputs=output, name="resNet50V2_FASD_RGB_V8_RandomErasing_silu_classifier")
+    return model
+
 
 def init_resNet50V2_FASD_RGB_V8_20(input_shape=(224, 224, 3)):
     img_input = tf.keras.layers.Input(shape=input_shape)
