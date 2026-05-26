@@ -161,10 +161,9 @@ class TrainingPipeline:
         def eer(y_true, y_pred):
             return 0.0  # Placeholder, actual EER is computed in the callback and logs
         
-        
+        label_smoothing = cfg["training_params"].get("label_smoothing_scheduler_initial", 0.0)
         isFocalLoss = m_params.get("isFocalLoss", 0)
         
-        custom_loss_engine = DynamicSmoothedBCELoss()
         if isFocalLoss:
             alpha = m_params.get("focal_alpha", 0.25)
             gamma = m_params.get("focal_gamma", 2.0)
@@ -175,7 +174,10 @@ class TrainingPipeline:
                 apply_class_balancing=apply_class_balancing
             )
         else:
-            loss = custom_loss_engine
+            if cfg["training_params"].get("label_smoothing_scheduler_decay_epochs", 0) >= 0:
+                loss = DynamicSmoothedBCELoss(initial_smoothing=label_smoothing)
+            else:
+                loss = tf.keras.losses.BinaryCrossentropy(label_smoothing=label_smoothing)
 
         model.compile(
             optimizer=optimizer,
