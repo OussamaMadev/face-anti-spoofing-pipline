@@ -174,11 +174,12 @@ class TrainingPipeline:
                 apply_class_balancing=apply_class_balancing
             )
         else:
-            if cfg["training_params"].get("label_smoothing_scheduler_decay_epochs", 0) >= 0:
+            if cfg["training_params"].get("label_smoothing_scheduler_decay_epochs", 0) > 0:
                 loss = DynamicSmoothedBCELoss(initial_smoothing=label_smoothing)
             else:
                 loss = tf.keras.losses.BinaryCrossentropy(label_smoothing=label_smoothing)
-
+        
+        print(f"Loss function: {loss}")
         model.compile(
             optimizer=optimizer,
             loss=loss,
