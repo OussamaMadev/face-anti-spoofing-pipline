@@ -1,0 +1,323 @@
+{
+    "metadata": {
+        "experiment_id": "experiment_149_20260526-210945",
+        "status": "completed",
+        "notes": "0072eer08z10padmodel  vs 0074eer08zom10padmodel ph2"
+    },
+    "records": [
+        {
+            "config": {
+                "filtering_params": {
+                    "data_map_path": "data_maps/CASIA_FASD_V3_30percent_uniformSampling.json",
+                    "keep_ratio": 0.3,
+                    "filter_function": "uniform_sampling"
+                },
+                "data_params": {
+                    "dataset_path": "/kaggle/input/datasets/maameri/casia-fasd-10margin/CASIA_FASD_V4_10margin",
+                    "input_size": [
+                        224,
+                        224,
+                        3
+                    ],
+                    "pixel_range": [
+                        0.0,
+                        1.0
+                    ],
+                    "batch_size": 16
+                },
+                "augmentation_params": {
+                    "horizontal_flip": 1,
+                    "zoom_range": [
+                        0.8,
+                        1.0
+                    ]
+                },
+                "model_params": {
+                    "model_init_function": "init_model_1",
+                    "note": "experiment_110_20260516-142428_2_model_resNet50V2_FASD_RGB_V8_RandomErasing",
+                    "parameters_count": 1797409,
+                    "architecture": "resNet50V2_FASD_RGB_V10"
+                },
+                "training_params": {
+                    "initial_epochs": 30,
+                    "learning_rate": 1e-10,
+                    "early_stopping_patience": 15,
+                    "ReduceLROnPlateau_patience": 5,
+                    "ReduceLROnPlateau_factor": 0.1,
+                    "label_smoothing_scheduler_initial": 0.0,
+                    "label_smoothing_scheduler_final": 0.0,
+                    "label_smoothing_scheduler_start_epoch": 0,
+                    "label_smoothing_scheduler_decay_epochs": 1
+                }
+            },
+            "logs": {
+                "best_model_name": "experiment_149_20260526-210945_0_model_resNet50V2_FASD_RGB_V10.keras",
+                "training_history": {
+                    "accuracy": [
+                        0.9954816699028015,
+                        0.9936392307281494,
+                        0.993419885635376,
+                        0.9932005405426025,
+                        0.9934637546539307,
+                        0.9935953617095947,
+                        0.9932882785797119,
+                        0.9937269687652588,
+                        0.9936392307281494,
+                        0.9936830997467041,
+                        0.9927180409431458,
+                        0.9926741719245911,
+                        0.9945166110992432,
+                        0.9948236346244812,
+                        0.9939901828765869,
+                        0.9937708377838135
+                    ],
+                    "eer": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "loss": [
+                        0.1289384365081787,
+                        0.13117070496082306,
+                        0.13083437085151672,
+                        0.1307525932788849,
+                        0.13045594096183777,
+                        0.12969709932804108,
+                        0.131083682179451,
+                        0.13090626895427704,
+                        0.13014894723892212,
+                        0.13006030023097992,
+                        0.13174590468406677,
+                        0.13129766285419464,
+                        0.1289633810520172,
+                        0.12980742752552032,
+                        0.1312687247991562,
+                        0.13013948500156403
+                    ],
+                    "learning_rate": [
+                        1.000000013351432e-10,
+                        1.000000013351432e-10,
+                        1.000000013351432e-10,
+                        1.000000013351432e-10,
+                        1.000000013351432e-10,
+                        1.000000013351432e-10,
+                        9.999999960041972e-12,
+                        9.999999960041972e-12,
+                        9.999999960041972e-12,
+                        9.999999960041972e-12,
+                        9.999999960041972e-12,
+                        9.999999960041972e-13,
+                        9.999999960041972e-13,
+                        9.999999960041972e-13,
+                        9.999999960041972e-13,
+                        9.999999960041972e-13
+                    ],
+                    "label_smoothing": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ]
+                },
+                "epochs": 16,
+                "final_test_metrics": {
+                    "loss": 0.14666365087032318,
+                    "accuracy": 0.9832315444946289,
+                    "eer": 0.022174148187508715
+                }
+            }
+        },
+        {
+            "config": {
+                "filtering_params": {
+                    "data_map_path": "data_maps/CASIA_FASD_V3_50percent_uniformSampling.json",
+                    "keep_ratio": 0.5,
+                    "filter_function": "uniform_sampling"
+                },
+                "data_params": {
+                    "dataset_path": "/kaggle/input/datasets/maameri/casia-fasd-10margin/CASIA_FASD_V4_10margin",
+                    "input_size": [
+                        224,
+                        224,
+                        3
+                    ],
+                    "pixel_range": [
+                        0.0,
+                        1.0
+                    ],
+                    "batch_size": 16
+                },
+                "augmentation_params": {
+                    "horizontal_flip": 1,
+                    "zoom_range": [
+                        0.8,
+                        1.0
+                    ]
+                },
+                "model_params": {
+                    "model_init_function": "init_model_2",
+                    "note": "experiment_099_20260511-001033_2_model_resNet50V2_FASD_RGB_V8_RandomErasing",
+                    "parameters_count": 1797409,
+                    "architecture": "resNet50V2_FASD_RGB_V10"
+                },
+                "training_params": {
+                    "initial_epochs": 20,
+                    "learning_rate": 1e-10,
+                    "early_stopping_patience": 15,
+                    "ReduceLROnPlateau_patience": 5,
+                    "ReduceLROnPlateau_factor": 0.1,
+                    "label_smoothing_scheduler_initial": 0.0,
+                    "label_smoothing_scheduler_final": 0.0,
+                    "label_smoothing_scheduler_start_epoch": 0,
+                    "label_smoothing_scheduler_decay_epochs": 1
+                }
+            },
+            "logs": {
+                "best_model_name": "experiment_149_20260526-210945_1_model_resNet50V2_FASD_RGB_V10.keras",
+                "training_history": {
+                    "accuracy": [
+                        0.9938152432441711,
+                        0.9943428039550781,
+                        0.9940497279167175,
+                        0.9943135380744934,
+                        0.9943721294403076,
+                        0.9945773482322693,
+                        0.9944601058959961,
+                        0.9936686754226685,
+                        0.9934634566307068,
+                        0.9944893717765808,
+                        0.9941962957382202,
+                        0.9938152432441711,
+                        0.9938445091247559,
+                        0.9942548871040344,
+                        0.9948997497558594,
+                        0.9933169484138489,
+                        0.9939324855804443,
+                        0.9937859177589417,
+                        0.993961751461029,
+                        0.9933755397796631
+                    ],
+                    "eer": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "loss": [
+                        0.12599803507328033,
+                        0.12513631582260132,
+                        0.12457355111837387,
+                        0.1250014752149582,
+                        0.12479441612958908,
+                        0.12480973452329636,
+                        0.12498635798692703,
+                        0.125722274184227,
+                        0.1261654645204544,
+                        0.12486261874437332,
+                        0.12467977404594421,
+                        0.12552432715892792,
+                        0.12579356133937836,
+                        0.12513071298599243,
+                        0.12420908361673355,
+                        0.1261785477399826,
+                        0.12578116357326508,
+                        0.12559662759304047,
+                        0.12595953047275543,
+                        0.12566599249839783
+                    ],
+                    "learning_rate": [
+                        1.000000013351432e-10,
+                        1.000000013351432e-10,
+                        1.000000013351432e-10,
+                        1.000000013351432e-10,
+                        1.000000013351432e-10,
+                        1.000000013351432e-10,
+                        1.000000013351432e-10,
+                        1.000000013351432e-10,
+                        9.999999960041972e-12,
+                        9.999999960041972e-12,
+                        9.999999960041972e-12,
+                        9.999999960041972e-12,
+                        9.999999960041972e-12,
+                        9.999999960041972e-13,
+                        9.999999960041972e-13,
+                        9.999999960041972e-13,
+                        9.999999960041972e-13,
+                        9.999999960041972e-13,
+                        9.999999960041972e-13,
+                        9.999999960041972e-13
+                    ],
+                    "label_smoothing": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ]
+                },
+                "epochs": 20,
+                "final_test_metrics": {
+                    "loss": 0.15658442676067352,
+                    "accuracy": 0.9724175930023193,
+                    "eer": 0.029596977329928525
+                }
+            }
+        }
+    ]
+}
