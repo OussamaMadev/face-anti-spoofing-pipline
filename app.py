@@ -93,10 +93,10 @@ def resource_path(relative_path):
     return os.path.join(base_path, relative_path)
 
 # 2. Global Configurations
-MODEL_FILE_PATH = resource_path("./experiment_106_20260511-222122_1_model_resNet50V2_FASD_RGB_V8_RandomErasing.keras")
+MODEL_FILE_PATH = resource_path("./experiment_172_20260528-211833_0_model_resNet50V2_FASD_RGB_V8_RandomErasing.keras")
 DETECTOR_ASSET_PATH = resource_path("./detector.tflite")
 INPUT_RESOLUTION = (224, 224)
-PADDING_MARGIN = 0.05  
+PADDING_MARGIN = 0.10
 
 class AntiSpoofingEngine:
     """Handles deep learning model execution and face detection tasks."""
