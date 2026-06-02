@@ -230,6 +230,10 @@ class TrainingPipeline:
             monitor_metric = 'loss'
             
 
+        metric = cfg["training_params"].get("monitor_metric", None)
+        if metric is not None:
+            monitor_metric = metric
+            
         # Early Stopping and ReduceLROnPlateau based on config
         early_stopping_patience = cfg["training_params"].get("early_stopping_patience", None)
         if early_stopping_patience is not None and early_stopping_patience >= 0:
