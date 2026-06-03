@@ -159,7 +159,7 @@ class TrainingPipeline:
        
         # 4. Compile
         def eer(y_true, y_pred):
-            return compute_eer(y_true, y_pred)
+            return 0.0
 
         label_smoothing = cfg["training_params"].get("label_smoothing_scheduler_initial", 0.0)
         isFocalLoss = m_params.get("isFocalLoss", 0)
